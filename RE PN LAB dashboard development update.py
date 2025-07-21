@@ -5,7 +5,7 @@ import base64
 import subprocess
 import sys
 import time
-from streamlit.runtime.scriptrunner import rerun
+
 
 # === Auto-start file server ===
 def start_file_server():
