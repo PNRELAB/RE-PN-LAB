@@ -113,7 +113,7 @@ def check_password():
             if submitted:
                 if password == "PNRELAB":
                     st.session_state["authenticated"] = True
-                    st.experimental_rerun()
+                    st.rerun()
 
                 else:
                     st.error("❌ Incorrect password")
@@ -226,14 +226,14 @@ elif selected_tab == "📋 Uploaded Log":
                             for file in selected:
                                 os.remove(os.path.join(folder, file))
                             st.success("✅ Files deleted")
-                            st.experimental_rerun()
+                            st.rerun()
 
                     with colB:
                         if st.button(f"📦 Archive Selected in {test}", key=f"arc_{test}"):
                             for file in selected:
                                 shutil.move(os.path.join(folder, file), os.path.join(archive_folder, file))
                             st.success("📦 Files archived")
-                            st.experimental_rerun()
+                            st.rerun()
 
 
     show_uploaded_files(mi_tests, SPOTFIRE_MI_URLS, "🛠 MI Tests")
