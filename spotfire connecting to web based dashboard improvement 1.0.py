@@ -14,7 +14,6 @@ def start_file_server():
         os.makedirs(folder_to_serve, exist_ok=True)
     try:
         port = 8502
-        # Use raw string for folder path and double backslashes
         command = [
             sys.executable,
             "-m",
@@ -124,12 +123,11 @@ def check_password():
             if submitted:
                 if password == "PNRELAB":
                     st.session_state["authenticated"] = True
-                    st.experimental_rerun()
+                    st.rerun()  # ✅ FIXED HERE
                 else:
                     st.error("❌ Incorrect password")
         return False
     return True
-
 
 if not check_password():
     st.stop()
@@ -140,7 +138,7 @@ SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
 SPOTFIRE_MI_URLS = {
     "TRH": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/TRH/Overview",
     "HACT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/HACT/Report",
-    "HEAD WEAR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/HeadWear/Dashboard",  # Fixed capitalization
+    "HEAD WEAR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/HeadWear/Dashboard",
     "FLYABILITY": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/flyability/Dashboard",
     "HBOT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/hbot/Dashboard",
     "SBT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/sbt/Dashboard",
@@ -174,7 +172,6 @@ if selected_tab == "📁 MI Upload":
         with open(path, "wb") as f:
             f.write(file.read())
 
-        # URL encode filename and folder for safe URL
         url_path = f"{urllib.parse.quote(selected_test)}/{urllib.parse.quote(file.name)}"
         web_file_url = f"http://localhost:8502/{url_path}"
 
@@ -195,7 +192,6 @@ elif selected_tab == "📁 Chemlab Upload":
         with open(path, "wb") as f:
             f.write(file.read())
 
-        # URL encode filename and folder for safe URL
         url_path = f"{urllib.parse.quote(selected_test)}/{urllib.parse.quote(file.name)}"
         web_file_url = f"http://localhost:8502/{url_path}"
 
@@ -229,7 +225,6 @@ elif selected_tab == "📋 Uploaded Log":
                     st.markdown(f"#### 📁 {test}")
                     selected_files = []
                     select_all = st.checkbox(f"Select All ({test})", key=f"all_{test}")
-                    # Collect selected files
                     for file in files:
                         file_path = os.path.join(folder, file)
                         col1, col2, col3 = st.columns([0.05, 0.5, 0.45])
@@ -255,7 +250,7 @@ elif selected_tab == "📋 Uploaded Log":
                                 except Exception as e:
                                     st.error(f"Failed to delete {file}: {e}")
                             st.success("✅ Files deleted")
-                            st.experimental_rerun()
+                            st.rerun()  # ✅ FIXED HERE
                     with colB:
                         if st.button(f"📦 Archive Selected in {test}", key=f"arc_{test}"):
                             for file in selected_files:
@@ -264,7 +259,7 @@ elif selected_tab == "📋 Uploaded Log":
                                 except Exception as e:
                                     st.error(f"Failed to archive {file}: {e}")
                             st.success("📦 Files archived")
-                            st.experimental_rerun()
+                            st.rerun()  # ✅ FIXED HERE
 
     show_uploaded_files(mi_tests, SPOTFIRE_MI_URLS, "🛠 MI Tests")
     st.markdown("---")
