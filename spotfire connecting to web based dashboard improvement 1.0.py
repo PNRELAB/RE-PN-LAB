@@ -31,8 +31,11 @@ start_file_server()
 
 # === Image to base64 ===
 def get_base64(image_path):
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except Exception:
+        return ""
 
 logo_path = "WD logo.png"
 background_path = "Slide1.PNG"
@@ -43,8 +46,68 @@ bg_base64 = get_base64(background_path)
 # === Streamlit config and styles ===
 st.set_page_config("RE PN LAB Dashboard", layout="wide")
 
-st.markdown(f"""<style>...<style>""", unsafe_allow_html=True)  # OMITTED STYLING BLOCK FOR BREVITY
+st.markdown(
+    f"""
+<style>
+html, body, .stApp {{
+    background: url("data:image/png;base64,{bg_base64}") no-repeat center center fixed;
+    background-size: cover;
+    font-family: 'Orbitron', sans-serif;
+    color: #ffffff;
+}}
+.block-container {{
+    background: rgba(0, 0, 0, 0.75);
+    padding: 2rem;
+    border-radius: 16px;
+    box-shadow: 0 0 25px #00ffe1;
+    color: #ffffff;
+}}
+h1, h2, h3, h4, h5, h6, .stMarkdown {{
+    color: #ffffff !important;
+    text-shadow: 0 0 8px #00fff2;
+}}
+.stTextInput > div > input[type="password"],
+.stTextInput > div > input[type="text"] {{
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    font-weight: bold !important;
+}}
+.stFileUploader > div > div {{
+    border: 2px dashed #00ffe1;
+    background-color: rgba(0,255,255,0.05);
+    border-radius: 10px;
+    font-size: 20px !important;
+}}
+.stButton>button, .stDownloadButton>button {{
+    background-color: #00ffe1;
+    color: #000000;
+    font-weight: bold;
+    border-radius: 10px;
+}}
+.stForm > div > button[type="submit"] {{
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    font-weight: bold !important;
+    border-radius: 10px !important;
+}}
+.stTextInput label, .stTextInput div, .stTextInput input:not([type="password"]):not([type="text"]),
+label, .css-10trblm, .css-1cpxqw2, .css-1v0mbdj,
+.css-1qg05tj, .css-1fcdlhz, .css-14xtw13, .css-1offfwp,
+.css-1d391kg, .stMarkdown p {{
+    color: #ffffff !important;
+}}
+.footer {{
+    text-align: center;
+    margin-top: 20px;
+    font-size: 14px;
+    color: #00ffe1;
+}}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
+# === WD Logo Header ===
 st.markdown(
     f'<div style="display: flex; justify-content: center; align-items: center; gap: 12px;">'
     f'<img src="data:image/png;base64,{logo_base64}" style="height: 40px;">'
@@ -63,7 +126,7 @@ def check_password():
             if submitted:
                 if password == "PNRELAB":
                     st.session_state["authenticated"] = True
-                    return True  # Removed experimental_rerun
+                    st.experimental_rerun()
                 else:
                     st.error("❌ Incorrect password")
         return False
@@ -75,17 +138,34 @@ if not check_password():
 # === Config Constants ===
 SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
 
-SPOTFIRE_MI_URLS = {...}  # OMITTED FOR BREVITY
-SPOTFIRE_CHEMLAB_URLS = {...}
+SPOTFIRE_MI_URLS = {
+    "TRH": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/TRH/Overview",
+    "HACT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/HACT/Report",
+    "HEAD WEAR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/HeadWear/Dashboard",
+    "FLYABILITY": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/flyability/Dashboard",
+    "HBOT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/hbot/Dashboard",
+    "SBT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/sbt/Dashboard",
+    "ADT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/adt/Dashboard",
+}
+
+SPOTFIRE_CHEMLAB_URLS = {
+    "AD COBALT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADCobalt/Dashboard",
+    "ICA": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ICA/Dashboard",
+    "GCMS": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/gcms/Dashboard",
+    "LCQTOF": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/lcqtof/Dashboard",
+    "FTIR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ftir/Dashboard",
+}
 
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
 cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 
-tabs = ["\ud83d\udcc1 MI Upload", "\ud83d\udcc1 Chemlab Upload", "\ud83d\udcc8 View Spotfire Dashboard", "\ud83d\udccb Uploaded Log"]
-selected_tab = st.selectbox("\ud83d\udf2d Navigate", tabs, label_visibility="collapsed")
+# === Tabs ===
+tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
+selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
 
-if selected_tab == "\ud83d\udcc1 MI Upload":
-    st.subheader("\ud83d\udee0\ufe0f Upload MI Test File")
+# === Upload MI ===
+if selected_tab == "📁 MI Upload":
+    st.subheader("🛠️ Upload MI Test File")
     selected_test = st.selectbox("Select MI Test", mi_tests)
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
     if file:
@@ -99,12 +179,14 @@ if selected_tab == "\ud83d\udcc1 MI Upload":
         web_file_url = f"http://localhost:8502/{url_path}"
 
         st.success(f"✅ File saved to `{path}`")
-        st.download_button("\ud83d\udcc5 Download This File", data=open(path, "rb").read(), file_name=file.name)
-        st.markdown(f"\ud83d\udd17 [\ud83c\udf10 Open File for Spotfire]({web_file_url})", unsafe_allow_html=True)
-        st.markdown(f"\ud83d\udd17 [\ud83d\udcc8 Open {selected_test} Dashboard in Spotfire]({SPOTFIRE_MI_URLS[selected_test]})", unsafe_allow_html=True)
+        with open(path, "rb") as f_read:
+            st.download_button("📥 Download This File", data=f_read.read(), file_name=file.name)
+        st.markdown(f"🔗 [🌐 Open File for Spotfire]({web_file_url})", unsafe_allow_html=True)
+        st.markdown(f"🔗 [📈 Open {selected_test} Dashboard in Spotfire]({SPOTFIRE_MI_URLS[selected_test]})", unsafe_allow_html=True)
 
-elif selected_tab == "\ud83d\udcc1 Chemlab Upload":
-    st.subheader("\ud83e\uddea Upload Chemlab Test File")
+# === Upload Chemlab ===
+elif selected_tab == "📁 Chemlab Upload":
+    st.subheader("🧪 Upload Chemlab Test File")
     selected_test = st.selectbox("Select Chemlab Test", cl_tests)
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
     if file:
@@ -118,25 +200,77 @@ elif selected_tab == "\ud83d\udcc1 Chemlab Upload":
         web_file_url = f"http://localhost:8502/{url_path}"
 
         st.success(f"✅ File saved to `{path}`")
-        st.download_button("\ud83d\udcc5 Download This File", data=open(path, "rb").read(), file_name=file.name)
-        st.markdown(f"\ud83d\udd17 [\ud83c\udf10 Open File for Spotfire]({web_file_url})", unsafe_allow_html=True)
-        st.markdown(f"\ud83d\udd17 [\ud83d\udcc8 Open {selected_test} Dashboard in Spotfire]({SPOTFIRE_CHEMLAB_URLS[selected_test]})", unsafe_allow_html=True)
+        with open(path, "rb") as f_read:
+            st.download_button("📥 Download This File", data=f_read.read(), file_name=file.name)
+        st.markdown(f"🔗 [🌐 Open File for Spotfire]({web_file_url})", unsafe_allow_html=True)
+        st.markdown(f"🔗 [📈 Open {selected_test} Dashboard in Spotfire]({SPOTFIRE_CHEMLAB_URLS[selected_test]})", unsafe_allow_html=True)
 
-elif selected_tab == "\ud83d\udcc8 View Spotfire Dashboard":
-    st.subheader("\ud83d\udcc8 Spotfire Dashboards")
+# === View Spotfire Dashboard ===
+elif selected_tab == "📈 View Spotfire Dashboard":
+    st.subheader("📈 Spotfire Dashboards")
     category = st.radio("Choose Category", ["MI", "Chemlab"], horizontal=True)
     tests = mi_tests if category == "MI" else cl_tests
     urls = SPOTFIRE_MI_URLS if category == "MI" else SPOTFIRE_CHEMLAB_URLS
     selected = st.selectbox("Select Dashboard", tests)
-    st.markdown(f"\ud83d\udd17 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
+    st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
 
-elif selected_tab == "\ud83d\udccb Uploaded Log":
-    st.subheader("\ud83d\udccb Uploaded Log")
+# === Uploaded Log ===
+elif selected_tab == "📋 Uploaded Log":
+    st.subheader("📋 Uploaded Log")
+
     def show_uploaded_files(test_list, spotfire_dict, title):
-        ...  # No changes needed here except rerun fix if required
+        st.markdown(f"### {title}")
+        for test in test_list:
+            folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
+            archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
+            os.makedirs(archive_folder, exist_ok=True)
+            if os.path.isdir(folder):
+                files = os.listdir(folder)
+                if files:
+                    st.markdown(f"#### 📁 {test}")
+                    selected_files = []
+                    select_all = st.checkbox(f"Select All ({test})", key=f"all_{test}")
+                    for file in files:
+                        file_path = os.path.join(folder, file)
+                        col1, col2, col3 = st.columns([0.05, 0.5, 0.45])
+                        with col1:
+                            checked = st.checkbox("", key=f"{test}_{file}", value=select_all)
+                            if checked:
+                                selected_files.append(file)
+                        with col2:
+                            size_kb = os.path.getsize(file_path) // 1024
+                            st.markdown(f"**{file}** ({size_kb} KB)")
+                        with col3:
+                            with open(file_path, "rb") as f_read:
+                                st.download_button("📥 Download", f_read.read(), file_name=file, key=f"dl_{test}_{file}")
+                            link = spotfire_dict.get(test)
+                            if link:
+                                st.markdown(f"[🔗 Open in Spotfire]({link})", unsafe_allow_html=True)
+                    colA, colB = st.columns(2)
+                    with colA:
+                        if st.button(f"🗑 Delete Selected in {test}", key=f"del_{test}"):
+                            for file in selected_files:
+                                try:
+                                    os.remove(os.path.join(folder, file))
+                                except Exception as e:
+                                    st.error(f"Failed to delete {file}: {e}")
+                            st.success("✅ Files deleted")
+                            st.experimental_rerun()
+                    with colB:
+                        if st.button(f"📦 Archive Selected in {test}", key=f"arc_{test}"):
+                            for file in selected_files:
+                                try:
+                                    shutil.move(os.path.join(folder, file), os.path.join(archive_folder, file))
+                                except Exception as e:
+                                    st.error(f"Failed to archive {file}: {e}")
+                            st.success("📦 Files archived")
+                            st.experimental_rerun()
 
-    show_uploaded_files(mi_tests, SPOTFIRE_MI_URLS, "\ud83d\udee0 MI Tests")
+    show_uploaded_files(mi_tests, SPOTFIRE_MI_URLS, "🛠 MI Tests")
     st.markdown("---")
-    show_uploaded_files(cl_tests, SPOTFIRE_CHEMLAB_URLS, "\ud83e\uddea Chemlab Tests")
+    show_uploaded_files(cl_tests, SPOTFIRE_CHEMLAB_URLS, "🧪 Chemlab Tests")
 
-st.markdown("<hr><div class='footer'>\ud83d\udcd8 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+# === Footer ===
+st.markdown(
+    "<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True
+)
