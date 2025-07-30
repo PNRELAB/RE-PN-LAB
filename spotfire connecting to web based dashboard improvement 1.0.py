@@ -127,20 +127,22 @@ def check_password():
             if submitted:
                 if password == "PNRELAB":
                     st.session_state["authenticated"] = True
-                    # Set a flag for rerun, but DO NOT call rerun here
-                    st.session_state["needs_rerun"] = True
+                    st.session_state["rerun_needed"] = True  # flag instead of rerun now
                     return False
                 else:
                     st.error("❌ Incorrect password")
         return False
     return True
 
-# Check login and rerun safely
+# Run password check
 if not check_password():
     st.stop()
-if st.session_state.get("needs_rerun", False):
-    st.session_state["needs_rerun"] = False
+
+# Trigger rerun after auth, safely
+if st.session_state.get("rerun_needed", False):
+    st.session_state["rerun_needed"] = False
     st.experimental_rerun()
+
 
 
 
