@@ -127,14 +127,22 @@ def check_password():
             if submitted:
                 if password == "PNRELAB":
                     st.session_state["authenticated"] = True
-                    st.experimental_rerun()
+                    # Instead of rerun here, return True and handle rerun outside
+                    return True
                 else:
                     st.error("❌ Incorrect password")
         return False
     return True
 
+
 if not check_password():
     st.stop()
+else:
+    # Once authenticated, rerun once to update UI without login form
+    if not st.session_state.get("rerun_done", False):
+        st.session_state["rerun_done"] = True
+        st.experimental_rerun()
+
 
 # === Config Constants ===
 SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
