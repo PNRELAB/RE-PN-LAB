@@ -28,7 +28,7 @@ def start_file_server():
     except Exception as e:
         st.warning(f"⚠️ Failed to start file server: {e}")
 
-start_file_server()
+##start_file_server()
 
 # === Image to base64 ===
 def get_base64(image_path):
