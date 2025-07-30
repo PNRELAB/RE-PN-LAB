@@ -142,7 +142,8 @@ if not check_password():
 
 if st.session_state.get("rerun_needed", False):
     st.session_state["rerun_needed"] = False
-    st.experimental_rerun()
+    st.rerun()
+
 
 # === Config Constants ===
 SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
