@@ -151,18 +151,18 @@ SPOTFIRE_MI_URLS = {
     "TRH": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/TRH/Overview",
     "HACT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/HACT/Report",
     "HEAD WEAR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/HeadWear/Dashboard",
-    "FLYABILITY": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/flyability/Dashboard",
-    "HBOT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/hbot/Dashboard",
-    "SBT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/sbt/Dashboard",
-    "ADT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/adt/Dashboard",
+    "FLYABILITY": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/flyability/Page",
+    "HBOT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/hbot/File",
+    "SBT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/sbt/Server",
+    "ADT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/adt/Notes",
 }
 
 SPOTFIRE_CHEMLAB_URLS = {
     "AD COBALT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADCobalt/Dashboard",
-    "ICA": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ICA/Dashboard",
-    "GCMS": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/gcms/Dashboard",
-    "LCQTOF": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/lcqtof/Dashboard",
-    "FTIR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ftir/Dashboard",
+    "ICA": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ICA/Overview",
+    "GCMS": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/gcms/Report",
+    "LCQTOF": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/lcqtof/File",
+    "FTIR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ftir/Server",
 }
 
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
