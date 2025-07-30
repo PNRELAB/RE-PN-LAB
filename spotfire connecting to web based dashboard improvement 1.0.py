@@ -13,7 +13,7 @@ def start_file_server():
     if not os.path.exists(folder_to_serve):
         os.makedirs(folder_to_serve, exist_ok=True)
     try:
-        port = 8502
+        port = 8080  # changed from 8502 to 8080 for example
         command = [
             sys.executable,
             "-m",
@@ -22,13 +22,14 @@ def start_file_server():
             "--directory",
             folder_to_serve,
         ]
-        subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         time.sleep(1)
         st.info(f"File server started on http://localhost:{port}")
     except Exception as e:
         st.warning(f"⚠️ Failed to start file server: {e}")
 
-start_file_server()
+# Uncomment this if you want the server to start automatically
+# start_file_server()
 
 # === Image to base64 ===
 def get_base64(image_path):
@@ -120,6 +121,8 @@ st.markdown(
 def check_password():
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
+    if "rerun_needed" not in st.session_state:
+        st.session_state["rerun_needed"] = False
 
     if not st.session_state["authenticated"]:
         with st.form("login_form", clear_on_submit=False):
@@ -128,7 +131,7 @@ def check_password():
             if submitted:
                 if password == "PNRELAB":
                     st.session_state["authenticated"] = True
-                    st.experimental_rerun()  # Rerun only here after successful login
+                    st.session_state["rerun_needed"] = True
                 else:
                     st.error("❌ Incorrect password")
         return False
@@ -136,6 +139,10 @@ def check_password():
 
 if not check_password():
     st.stop()
+
+if st.session_state.get("rerun_needed", False):
+    st.session_state["rerun_needed"] = False
+    st.experimental_rerun()
 
 # === Config Constants ===
 SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
@@ -178,7 +185,7 @@ if selected_tab == "📁 MI Upload":
             f.write(file.read())
 
         url_path = f"{urllib.parse.quote(selected_test)}/{urllib.parse.quote(file.name)}"
-        web_file_url = f"http://localhost:8502/{url_path}"
+        web_file_url = f"http://localhost:8080/{url_path}"
 
         st.success(f"✅ File saved to `{path}`")
         with open(path, "rb") as f_read:
@@ -199,7 +206,7 @@ elif selected_tab == "📁 Chemlab Upload":
             f.write(file.read())
 
         url_path = f"{urllib.parse.quote(selected_test)}/{urllib.parse.quote(file.name)}"
-        web_file_url = f"http://localhost:8502/{url_path}"
+        web_file_url = f"http://localhost:8080/{url_path}"
 
         st.success(f"✅ File saved to `{path}`")
         with open(path, "rb") as f_read:
