@@ -13,7 +13,7 @@ def start_file_server():
     if not os.path.exists(folder_to_serve):
         os.makedirs(folder_to_serve, exist_ok=True)
     try:
-        port = 8502
+        port = 8080  # changed from 8502
         command = [
             sys.executable,
             "-m",
@@ -22,8 +22,9 @@ def start_file_server():
             "--directory",
             folder_to_serve,
         ]
-        subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         time.sleep(1)
+        st.info(f"File server started on http://localhost:{port}")
     except Exception as e:
         st.warning(f"⚠️ Failed to start file server: {e}")
 
