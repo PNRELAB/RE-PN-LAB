@@ -1,3 +1,4 @@
+
 import streamlit as st
 import os
 import shutil
@@ -9,7 +10,7 @@ import time
 # === Auto-start file server ===
 def start_file_server():
     try:
-        folder_to_serve = r"C:\\PN-RE-LAB"
+        folder_to_serve = r"C:\PN-RE-LAB"
         port = 8502
         command = [sys.executable, "-m", "http.server", str(port), "--directory", folder_to_serve]
         subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -97,7 +98,6 @@ st.markdown(
 def check_password():
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
-
     if not st.session_state["authenticated"]:
         with st.form("login_form", clear_on_submit=False):
             password = st.text_input("🔐 Enter Password", type="password", key="password_input")
@@ -115,48 +115,28 @@ if not check_password():
     st.stop()
 
 # === Config Constants ===
-SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
+SHARED_UPLOAD_FOLDER = r"C:\PN-RE-LAB"
 
 SPOTFIRE_MI_URLS = {
-    "TRH": "/ADHOC/RELIABILITY/TRH",
-    "HACT": "/ADHOC/RELIABILITY/HACT",
-    "HEAD WEAR": "/ADHOC/RELIABILITY/HeadWear",
-    "FLYABILITY": "/ADHOC/RELIABILITY/flyability",
-    "HBOT": "/ADHOC/RELIABILITY/hbot",
-    "SBT": "/ADHOC/RELIABILITY/sbt",
-    "ADT": "/ADHOC/RELIABILITY/adt"
+    "TRH": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/TRH",
+    "HACT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/HACT",
+    "HEAD WEAR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/HeadWear",
+    "FLYABILITY": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/flyability",
+    "HBOT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/hbot",
+    "SBT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/sbt",
+    "ADT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/adt"
 }
 
 SPOTFIRE_CHEMLAB_URLS = {
-    "AD COBALT": "/ADHOC/RELIABILITY/ADCobalt",
-    "ICA": "/ADHOC/RELIABILITY/ICA",
-    "GCMS": "/ADHOC/RELIABILITY/gcms",
-    "LCQTOF": "/ADHOC/RELIABILITY/lcqtof",
-    "FTIR": "/ADHOC/RELIABILITY/ftir"
+    "AD COBALT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/ADCobalt",
+    "ICA": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/ICA",
+    "GCMS": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/gcms",
+    "LCQTOF": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/lcqtof",
+    "FTIR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/ftir"
 }
-
-SPOTFIRE_BASE_URL = "https://spotfiremypn.wdc.com/spotfire/wp/OpenAnalysis?file="
 
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
 cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
-
-# === Helper functions ===
-def save_file(uploaded_file, test_name):
-    folder = os.path.join(SHARED_UPLOAD_FOLDER, test_name.replace(" ", "_"))
-    os.makedirs(folder, exist_ok=True)
-    path = os.path.join(folder, uploaded_file.name)
-    with open(path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-    return path
-
-def get_spotfire_url(test_name, category):
-    if category == "MI":
-        folder = SPOTFIRE_MI_URLS.get(test_name)
-    else:
-        folder = SPOTFIRE_CHEMLAB_URLS.get(test_name)
-    if folder:
-        return SPOTFIRE_BASE_URL + folder
-    return None
 
 # === Tabs ===
 tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
@@ -168,10 +148,19 @@ if selected_tab == "📁 MI Upload":
     selected_test = st.selectbox("Select MI Test", mi_tests)
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
     if file:
-        path = save_file(file, selected_test)
+        folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, file.name)
+        with open(path, "wb") as f:
+            f.write(file.read())
         st.success(f"✅ File saved to `{path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
-        st.markdown(f"🔗 [Open in Spotfire]({get_spotfire_url(selected_test,'MI')})", unsafe_allow_html=True)
+        # Show Spotfire link safely
+        spotfire_link = SPOTFIRE_MI_URLS.get(selected_test)
+        if spotfire_link:
+            st.markdown(f"🔗 [Open in Spotfire]({spotfire_link})", unsafe_allow_html=True)
+        else:
+            st.warning("⚠️ Spotfire dashboard URL not found for this test.")
 
 # === Upload Chemlab ===
 elif selected_tab == "📁 Chemlab Upload":
@@ -179,30 +168,42 @@ elif selected_tab == "📁 Chemlab Upload":
     selected_test = st.selectbox("Select Chemlab Test", cl_tests)
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
     if file:
-        path = save_file(file, selected_test)
+        folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, file.name)
+        with open(path, "wb") as f:
+            f.write(file.read())
         st.success(f"✅ File saved to `{path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
-        st.markdown(f"🔗 [Open in Spotfire]({get_spotfire_url(selected_test,'Chemlab')})", unsafe_allow_html=True)
+        # Show Spotfire link safely
+        spotfire_link = SPOTFIRE_CHEMLAB_URLS.get(selected_test)
+        if spotfire_link:
+            st.markdown(f"🔗 [Open in Spotfire]({spotfire_link})", unsafe_allow_html=True)
+        else:
+            st.warning("⚠️ Spotfire dashboard URL not found for this test.")
 
 # === View Spotfire Dashboard ===
 elif selected_tab == "📈 View Spotfire Dashboard":
     st.subheader("📈 Spotfire Dashboards")
     category = st.radio("Choose Category", ["MI", "Chemlab"], horizontal=True)
     tests = mi_tests if category == "MI" else cl_tests
+    urls = SPOTFIRE_MI_URLS if category == "MI" else SPOTFIRE_CHEMLAB_URLS
     selected = st.selectbox("Select Dashboard", tests)
-    url = get_spotfire_url(selected, category)
-    if url:
-        st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({url})", unsafe_allow_html=True)
+    spotfire_link = urls.get(selected)
+    if spotfire_link:
+        st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({spotfire_link})", unsafe_allow_html=True)
+    else:
+        st.warning("⚠️ Spotfire dashboard URL not found for this test.")
 
 # === Uploaded Log ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
 
-    def show_uploaded_files(test_list, category, title):
+    def show_uploaded_files(test_list, spotfire_dict, title):
         st.markdown(f"### {title}")
         for test in test_list:
-            folder = os.path.join(SHARED_UPLOAD_FOLDER, test.replace(" ","_"))
-            archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test.replace(" ","_"))
+            folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
+            archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
             os.makedirs(archive_folder, exist_ok=True)
             if os.path.isdir(folder):
                 files = os.listdir(folder)
@@ -210,38 +211,37 @@ elif selected_tab == "📋 Uploaded Log":
                     st.markdown(f"#### 📁 {test}")
                     selected_files = []
                     select_all = st.checkbox(f"Select All ({test})", key=f"all_{test}")
-                    for f in files:
-                        file_path = os.path.join(folder, f)
+                    for file in files:
+                        file_path = os.path.join(folder, file)
                         col1, col2, col3 = st.columns([0.05, 0.5, 0.45])
                         with col1:
-                            if st.checkbox("", key=f"{test}_{f}", value=select_all):
-                                selected_files.append(f)
+                            if st.checkbox("", key=f"{test}_{file}", value=select_all):
+                                selected_files.append(file)
                         with col2:
-                            st.markdown(f"**{f}** ({os.path.getsize(file_path)//1024} KB)")
+                            st.markdown(f"**{file}** ({os.path.getsize(file_path) // 1024} KB)")
                         with col3:
-                            with open(file_path, "rb") as fh:
-                                st.download_button("📥 Download", fh.read(), file_name=f, key=f"dl_{test}_{f}")
-                            url = get_spotfire_url(test, category)
-                            if url:
-                                st.markdown(f"[🔗 Open in Spotfire]({url})", unsafe_allow_html=True)
+                            with open(file_path, "rb") as f:
+                                st.download_button("📥 Download", f.read(), file_name=file, key=f"dl_{test}_{file}")
+                            link = spotfire_dict.get(test)
+                            if link:
+                                st.markdown(f"[🔗 Open in Spotfire]({link})", unsafe_allow_html=True)
                     colA, colB = st.columns(2)
                     with colA:
                         if st.button(f"🗑 Delete Selected in {test}", key=f"del_{test}"):
-                            for f in selected_files:
-                                os.remove(os.path.join(folder, f))
+                            for file in selected_files:
+                                os.remove(os.path.join(folder, file))
                             st.success("✅ Files deleted")
-                            st.experimental_rerun()
+                            st.rerun()
                     with colB:
                         if st.button(f"📦 Archive Selected in {test}", key=f"arc_{test}"):
-                            for f in selected_files:
-                                shutil.move(os.path.join(folder, f), os.path.join(archive_folder, f))
+                            for file in selected_files:
+                                shutil.move(os.path.join(folder, file), os.path.join(archive_folder, file))
                             st.success("📦 Files archived")
-                            st.experimental_rerun()
+                            st.rerun()
 
-    show_uploaded_files(mi_tests, "MI", "🛠 MI Tests")
+    show_uploaded_files(mi_tests, SPOTFIRE_MI_URLS, "🛠 MI Tests")
     st.markdown("---")
-    show_uploaded_files(cl_tests, "Chemlab", "🧪 Chemlab Tests")
+    show_uploaded_files(cl_tests, SPOTFIRE_CHEMLAB_URLS, "🧪 Chemlab Tests")
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
-
