@@ -6,7 +6,7 @@ import subprocess
 import sys
 import time
 
-# === Auto-start file server (optional, still keeping) ===
+# === Auto-start file server ===
 def start_file_server():
     try:
         folder_to_serve = r"C:\\PN-RE-LAB"
@@ -32,6 +32,7 @@ bg_base64 = get_base64(background_path)
 
 # === Streamlit config and styles ===
 st.set_page_config("RE PN LAB Dashboard", layout="wide")
+
 st.markdown(f"""
 <style>
 html, body, .stApp {{
@@ -152,8 +153,9 @@ if selected_tab == "📁 MI Upload":
         path = os.path.join(folder, file.name)
         with open(path, "wb") as f:
             f.write(file.read())
-        st.success(f"✅ File saved to `{path}`")
-        st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
+        
+        st.success(f"✅ File uploaded to Spotfire library folder `{folder}`")
+        st.info("Open Spotfire Analyst and refresh the corresponding `.dxp` to view this Excel.")
 
 # === Upload Chemlab ===
 elif selected_tab == "📁 Chemlab Upload":
@@ -166,18 +168,20 @@ elif selected_tab == "📁 Chemlab Upload":
         path = os.path.join(folder, file.name)
         with open(path, "wb") as f:
             f.write(file.read())
-        st.success(f"✅ File saved to `{path}`")
-        st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
+        
+        st.success(f"✅ File uploaded to Spotfire library folder `{folder}`")
+        st.info("Open Spotfire Analyst and refresh the corresponding `.dxp` to view this Excel.")
 
 # === View Spotfire Dashboard ===
 elif selected_tab == "📈 View Spotfire Dashboard":
     st.subheader("📈 Spotfire Dashboards")
     category = st.radio("Choose Category", ["MI", "Chemlab"], horizontal=True)
     tests = mi_tests if category == "MI" else cl_tests
+    urls = SPOTFIRE_MI_URLS if category == "MI" else SPOTFIRE_CHEMLAB_URLS
     selected = st.selectbox("Select Dashboard", tests)
-    st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({selected})", unsafe_allow_html=True)
+    st.markdown(f"🔗 Open the `{selected}` dashboard in Spotfire Analyst and refresh the `.dxp` to see latest data.", unsafe_allow_html=True)
 
-# === Uploaded Log with Open in Spotfire Analyst ===
+# === Uploaded Log ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
 
@@ -195,19 +199,28 @@ elif selected_tab == "📋 Uploaded Log":
                     select_all = st.checkbox(f"Select All ({test})", key=f"all_{test}")
                     for file in files:
                         file_path = os.path.join(folder, file)
-                        col1, col2, col3 = st.columns([0.6, 0.25, 0.15])
+                        col1, col2, col3 = st.columns([0.05, 0.5, 0.45])
                         with col1:
-                            st.markdown(file)
+                            if st.checkbox("", key=f"{test}_{file}", value=select_all):
+                                selected.append(file)
                         with col2:
+                            st.markdown(f"**{file}** ({os.path.getsize(file_path) // 1024} KB)")
+                        with col3:
                             with open(file_path, "rb") as f:
                                 st.download_button("📥 Download", f.read(), file_name=file, key=f"dl_{test}_{file}")
-                        with col3:
-                            if st.button("🔗 Open in Spotfire", key=f"open_{test}_{file}"):
-                                try:
-                                    subprocess.Popen([file_path], shell=True)
-                                    st.success(f"Opening {file} in Spotfire Analyst")
-                                except Exception as e:
-                                    st.error(f"Failed to open file: {e}")
+                    colA, colB = st.columns(2)
+                    with colA:
+                        if st.button(f"🗑 Delete Selected in {test}", key=f"del_{test}"):
+                            for file in selected:
+                                os.remove(os.path.join(folder, file))
+                            st.success("✅ Files deleted")
+                            st.rerun()
+                    with colB:
+                        if st.button(f"📦 Archive Selected in {test}", key=f"arc_{test}"):
+                            for file in selected:
+                                shutil.move(os.path.join(folder, file), os.path.join(archive_folder, file))
+                            st.success("📦 Files archived")
+                            st.rerun()
 
     show_uploaded_files(mi_tests, "🛠 MI Tests")
     st.markdown("---")
