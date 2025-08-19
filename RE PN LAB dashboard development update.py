@@ -6,7 +6,6 @@ import subprocess
 import sys
 import time
 
-
 # === Auto-start file server ===
 def start_file_server():
     try:
@@ -27,7 +26,6 @@ def get_base64(image_path):
 
 logo_path = "WD logo.png"
 background_path = "Slide1.PNG"
-
 
 logo_base64 = get_base64(logo_path)
 bg_base64 = get_base64(background_path)
@@ -54,37 +52,30 @@ h1, h2, h3, h4, h5, h6, .stMarkdown {{
     color: #ffffff !important;
     text-shadow: 0 0 8px #00fff2;
 }}
-
-/* Password input text black on white background (hidden and revealed) */
 .stTextInput > div > input[type="password"],
 .stTextInput > div > input[type="text"] {{
     color: #000000 !important;
     background-color: #ffffff !important;
     font-weight: bold !important;
 }}
-
 .stFileUploader > div > div {{
     border: 2px dashed #00ffe1;
     background-color: rgba(0,255,255,0.05);
     border-radius: 10px;
     font-size: 20px !important;
 }}
-
 .stButton>button, .stDownloadButton>button {{
     background-color: #00ffe1;
     color: #000000;
     font-weight: bold;
     border-radius: 10px;
 }}
-
 .stForm > div > button[type="submit"] {{
     color: #000000 !important;
     background-color: #ffffff !important;
     font-weight: bold !important;
     border-radius: 10px !important;
 }}
-
-/* Force white text across default labels and UI components except password */
 .stTextInput label, .stTextInput div, .stTextInput input:not([type="password"]):not([type="text"]),
 label, .css-10trblm, .css-1cpxqw2, .css-1v0mbdj,
 .css-1qg05tj, .css-1fcdlhz, .css-14xtw13, .css-1offfwp,
@@ -115,7 +106,6 @@ def check_password():
                 if password == "PNRELAB":
                     st.session_state["authenticated"] = True
                     st.rerun()
-
                 else:
                     st.error("❌ Incorrect password")
         return False
@@ -148,6 +138,39 @@ SPOTFIRE_CHEMLAB_URLS = {
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
 cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 
+# === Helper: Upload to Spotfire Library ===
+def upload_to_spotfire(file, test_name, category="MI"):
+    # 1️⃣ Save locally temporarily
+    temp_folder = os.path.join(SHARED_UPLOAD_FOLDER, test_name.replace(" ", "_"))
+    os.makedirs(temp_folder, exist_ok=True)
+    temp_path = os.path.join(temp_folder, file.name)
+    with open(temp_path, "wb") as f:
+        f.write(file.read())
+
+    # 2️⃣ Determine Spotfire Library folder
+    if category == "MI":
+        folder_map = {k.upper(): k for k in mi_tests}
+    else:
+        folder_map = {k.upper(): k for k in cl_tests}
+
+    spotfire_folder = f"/ADHOC/RELIABILITY/{folder_map.get(test_name.upper(), test_name.replace(' ', ''))}"
+
+    # 3️⃣ Upload using LibraryAdmin CLI
+    libraryadmin_path = r"C:\Path\To\LibraryAdmin.exe"  # <-- replace with actual path
+    spotfire_server = "https://spotfiremypn.wdc.com"
+    cmd = [
+        libraryadmin_path,
+        "upload",
+        "-u", spotfire_server,
+        "-f", temp_path,
+        "-d", spotfire_folder
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode == 0:
+        return True, spotfire_folder
+    else:
+        return False, result.stderr
+
 # === Tabs ===
 tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
 selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
@@ -158,14 +181,12 @@ if selected_tab == "📁 MI Upload":
     selected_test = st.selectbox("Select MI Test", mi_tests)
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
     if file:
-        folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
-        os.makedirs(folder, exist_ok=True)
-        path = os.path.join(folder, file.name)
-        with open(path, "wb") as f:
-            f.write(file.read())
-        st.success(f"✅ File saved to `{path}`")
-        st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
-        st.markdown(f"🔗 [Open in Spotfire]({SPOTFIRE_MI_URLS[selected_test]})", unsafe_allow_html=True)
+        success, info = upload_to_spotfire(file, selected_test, category="MI")
+        if success:
+            st.success(f"✅ File uploaded to Spotfire Library: `{info}`")
+            st.markdown(f"🔗 [Open in Spotfire]({SPOTFIRE_MI_URLS[selected_test]})", unsafe_allow_html=True)
+        else:
+            st.error(f"❌ Upload failed: {info}")
 
 # === Upload Chemlab ===
 elif selected_tab == "📁 Chemlab Upload":
@@ -173,14 +194,12 @@ elif selected_tab == "📁 Chemlab Upload":
     selected_test = st.selectbox("Select Chemlab Test", cl_tests)
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
     if file:
-        folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
-        os.makedirs(folder, exist_ok=True)
-        path = os.path.join(folder, file.name)
-        with open(path, "wb") as f:
-            f.write(file.read())
-        st.success(f"✅ File saved to `{path}`")
-        st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
-        st.markdown(f"🔗 [Open in Spotfire]({SPOTFIRE_CHEMLAB_URLS[selected_test]})", unsafe_allow_html=True)
+        success, info = upload_to_spotfire(file, selected_test, category="Chemlab")
+        if success:
+            st.success(f"✅ File uploaded to Spotfire Library: `{info}`")
+            st.markdown(f"🔗 [Open in Spotfire]({SPOTFIRE_CHEMLAB_URLS[selected_test]})", unsafe_allow_html=True)
+        else:
+            st.error(f"❌ Upload failed: {info}")
 
 # === View Spotfire Dashboard ===
 elif selected_tab == "📈 View Spotfire Dashboard":
@@ -198,8 +217,8 @@ elif selected_tab == "📋 Uploaded Log":
     def show_uploaded_files(test_list, spotfire_dict, title):
         st.markdown(f"### {title}")
         for test in test_list:
-            folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
-            archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
+            folder = os.path.join(SHARED_UPLOAD_FOLDER, test.replace(" ", "_"))
+            archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test.replace(" ", "_"))
             os.makedirs(archive_folder, exist_ok=True)
             if os.path.isdir(folder):
                 files = os.listdir(folder)
@@ -228,7 +247,6 @@ elif selected_tab == "📋 Uploaded Log":
                                 os.remove(os.path.join(folder, file))
                             st.success("✅ Files deleted")
                             st.rerun()
-
                     with colB:
                         if st.button(f"📦 Archive Selected in {test}", key=f"arc_{test}"):
                             for file in selected:
@@ -236,10 +254,10 @@ elif selected_tab == "📋 Uploaded Log":
                             st.success("📦 Files archived")
                             st.rerun()
 
-
     show_uploaded_files(mi_tests, SPOTFIRE_MI_URLS, "🛠 MI Tests")
     st.markdown("---")
     show_uploaded_files(cl_tests, SPOTFIRE_CHEMLAB_URLS, "🧪 Chemlab Tests")
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
