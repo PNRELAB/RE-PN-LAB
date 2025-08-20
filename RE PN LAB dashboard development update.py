@@ -6,7 +6,6 @@ import subprocess
 import sys
 import time
 import platform
-import streamlit.components.v1 as components
 
 # === Auto-start file server ===
 def start_file_server():
@@ -28,11 +27,13 @@ def get_base64(image_path):
 
 logo_path = "WD logo.png"
 background_path = "Slide1.PNG"
+
 logo_base64 = get_base64(logo_path)
 bg_base64 = get_base64(background_path)
 
 # === Streamlit config and styles ===
 st.set_page_config("RE PN LAB Dashboard", layout="wide")
+
 st.markdown(f"""
 <style>
 html, body, .stApp {{
@@ -97,6 +98,7 @@ st.markdown(
 def check_password():
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
+
     if not st.session_state["authenticated"]:
         with st.form("login_form", clear_on_submit=False):
             password = st.text_input("🔐 Enter Password", type="password", key="password_input")
@@ -137,7 +139,7 @@ SPOTFIRE_CHEMLAB_URLS = {
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
 cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 
-# === Helper to open local folder (optional) ===
+# === Helper to open local folder ===
 def open_local_folder(path):
     try:
         if platform.system() == "Windows":
@@ -147,7 +149,7 @@ def open_local_folder(path):
         else:  # Linux
             subprocess.Popen(["xdg-open", path])
     except Exception as e:
-        st.warning(f"⚠️ Cannot open local folder: {e}")
+        st.warning(f"⚠️ Could not open folder: {e}")
 
 # === Tabs ===
 tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
@@ -166,8 +168,27 @@ if selected_tab == "📁 MI Upload":
             f.write(file.read())
         st.success(f"✅ File saved to `{path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
+
+        # Open folder button
         if st.button(f"📂 Open Local Folder for {selected_test}"):
             open_local_folder(folder)
+
+        # Spotfire instructions
+        st.info(
+            f"📌 To upload to Spotfire Library under `/ADHOC/RELIABILITY/{selected_test}`:\n"
+            f"1. Open Spotfire Analyst.\n"
+            f"2. File → Open → Local File → select `{path}`\n"
+            f"3. File → Save As → Spotfire Library → choose `/ADHOC/RELIABILITY/{selected_test}`"
+        )
+
+        # Optional: launch Spotfire Analyst
+        if platform.system() == "Windows":
+            if st.button(f"🔹 Open {file.name} in Spotfire Analyst"):
+                try:
+                    subprocess.Popen([r"C:\Program Files\TIBCO\Spotfire Analyst\Spotfire.Dxp.exe", path])
+                    st.success("✅ Spotfire Analyst launched with the file")
+                except Exception as e:
+                    st.warning(f"⚠️ Could not launch Spotfire Analyst: {e}")
 
 # === Upload Chemlab ===
 elif selected_tab == "📁 Chemlab Upload":
@@ -182,22 +203,38 @@ elif selected_tab == "📁 Chemlab Upload":
             f.write(file.read())
         st.success(f"✅ File saved to `{path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
+
         if st.button(f"📂 Open Local Folder for {selected_test}"):
             open_local_folder(folder)
 
-# === View Spotfire Dashboard (embedded) ===
+        st.info(
+            f"📌 To upload to Spotfire Library under `/ADHOC/RELIABILITY/{selected_test}`:\n"
+            f"1. Open Spotfire Analyst.\n"
+            f"2. File → Open → Local File → select `{path}`\n"
+            f"3. File → Save As → Spotfire Library → choose `/ADHOC/RELIABILITY/{selected_test}`"
+        )
+
+        if platform.system() == "Windows":
+            if st.button(f"🔹 Open {file.name} in Spotfire Analyst"):
+                try:
+                    subprocess.Popen([r"C:\Program Files\TIBCO\Spotfire Analyst\Spotfire.Dxp.exe", path])
+                    st.success("✅ Spotfire Analyst launched with the file")
+                except Exception as e:
+                    st.warning(f"⚠️ Could not launch Spotfire Analyst: {e}")
+
+# === View Spotfire Dashboard ===
 elif selected_tab == "📈 View Spotfire Dashboard":
-    st.subheader("📈 Embedded Spotfire Dashboards")
+    st.subheader("📈 Spotfire Dashboards")
     category = st.radio("Choose Category", ["MI", "Chemlab"], horizontal=True)
     tests = mi_tests if category == "MI" else cl_tests
     urls = SPOTFIRE_MI_URLS if category == "MI" else SPOTFIRE_CHEMLAB_URLS
-    selected_dashboard = st.selectbox("Select Dashboard", tests)
-    url = urls[selected_dashboard]
-    components.iframe(url, width=1200, height=800, scrolling=True)
+    selected = st.selectbox("Select Dashboard", tests)
+    st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
 
 # === Uploaded Log ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
+
     def show_uploaded_files(test_list, title):
         st.markdown(f"### {title}")
         for test in test_list:
