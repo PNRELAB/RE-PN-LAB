@@ -133,7 +133,7 @@ if not check_password():
 
 # === Config Constants ===
 SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
-LOCAL_SAVE_FOLDER   = os.path.join(SHARED_UPLOAD_FOLDER, "DOWNLOADS")
+LOCAL_SAVE_FOLDER   = os.path.join(SHARED_UPLOAD_FOLDER, "C:\Users\1000329829\OneDrive - Western Digital\WEB BASED DATA")
 os.makedirs(LOCAL_SAVE_FOLDER, exist_ok=True)
 
 SPOTFIRE_MI_URLS = {
@@ -300,4 +300,5 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
 
