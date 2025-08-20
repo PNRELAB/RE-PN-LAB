@@ -394,7 +394,7 @@ elif selected_tab == "📋 Uploaded Log":
                                 except Exception:
                                     pass
                         st.success(f"✅ Copied {copied} file(s) to local")
-                        st.experimental_rerun()
+                        st.rerun()
 
                 # Spotfire files
                 st.divider()
@@ -420,3 +420,4 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
