@@ -48,7 +48,6 @@ def list_files_fast(folder: str):
                         })
                     except FileNotFoundError:
                         continue
-            # newest first
             files.sort(key=lambda x: x["mtime"], reverse=True)
             return files
     except FileNotFoundError:
@@ -106,12 +105,6 @@ h1, h2, h3, h4, h5, h6, .stMarkdown {{
     font-weight: bold !important;
     border-radius: 10px !important;
 }}
-.stTextInput label, .stTextInput div, .stTextInput input:not([type="password"]):not([type="text"]),
-label, .css-10trblm, .css-1cpxqw2, .css-1v0mbdj,
-.css-1qg05tj, .css-1fcdlhz, .css-14xtw13, .css-1offfwp,
-.css-1d391kg, .stMarkdown p {{
-    color: #ffffff !important;
-}}
 .missing-local {{
     background-color: rgba(255, 0, 0, 0.20);
     padding: 2px 6px;
@@ -140,7 +133,6 @@ st.markdown(
 def check_password():
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
-
     if not st.session_state["authenticated"]:
         with st.form("login_form", clear_on_submit=False):
             password = st.text_input("🔐 Enter Password", type="password", key="password_input")
@@ -158,8 +150,8 @@ if not check_password():
     st.stop()
 
 # === Config Constants ===
-SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"  # Streamlit folders
-LOCAL_SAVE_FOLDER   = r"C:\\PN-RE-LAB"   # Local disk folders (same path on local PC)
+SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
+LOCAL_SAVE_FOLDER   = r"C:\\PN-RE-LAB"
 os.makedirs(LOCAL_SAVE_FOLDER, exist_ok=True)
 
 SPOTFIRE_MI_URLS = {
@@ -187,6 +179,19 @@ cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
 selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
 
+# === Helper: save uploaded file to local safely ===
+def save_to_local(src_path, dst_folder):
+    os.makedirs(dst_folder, exist_ok=True)
+    dst_path = os.path.join(dst_folder, os.path.basename(src_path))
+    try:
+        if os.path.abspath(src_path) != os.path.abspath(dst_path):
+            shutil.copy2(src_path, dst_path)
+        return dst_path, True
+    except shutil.SameFileError:
+        return dst_path, False
+    except Exception as e:
+        return dst_path, str(e)
+
 # === Upload MI ===
 if selected_tab == "📁 MI Upload":
     st.subheader("🛠️ Upload MI Test File")
@@ -204,15 +209,17 @@ if selected_tab == "📁 MI Upload":
 
         shutil.copy2(path, os.path.join(spotfire_folder, file.name))
 
-        # Save to local disk
         local_folder = os.path.join(LOCAL_SAVE_FOLDER, selected_test)
-        os.makedirs(local_folder, exist_ok=True)
-        local_path = os.path.join(local_folder, file.name)
-        shutil.copy2(path, local_path)
+        local_path, saved = save_to_local(path, local_folder)
+        if saved is True:
+            st.success(f"💾 File saved to local disk: `{local_path}`")
+        elif saved is False:
+            st.info(f"💾 File already exists in local folder: `{local_path}`")
+        else:
+            st.error(f"❌ Failed to save to local: {saved}")
 
         st.success(f"✅ File saved to Streamlit folder: `{path}`")
         st.success(f"📂 File copied to Spotfire folder: `{spotfire_folder}`")
-        st.success(f"💾 File saved to local disk: `{local_path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
 
 # === Upload Chemlab ===
@@ -232,15 +239,17 @@ elif selected_tab == "📁 Chemlab Upload":
 
         shutil.copy2(path, os.path.join(spotfire_folder, file.name))
 
-        # Save to local disk
         local_folder = os.path.join(LOCAL_SAVE_FOLDER, selected_test)
-        os.makedirs(local_folder, exist_ok=True)
-        local_path = os.path.join(local_folder, file.name)
-        shutil.copy2(path, local_path)
+        local_path, saved = save_to_local(path, local_folder)
+        if saved is True:
+            st.success(f"💾 File saved to local disk: `{local_path}`")
+        elif saved is False:
+            st.info(f"💾 File already exists in local folder: `{local_path}`")
+        else:
+            st.error(f"❌ Failed to save to local: {saved}")
 
         st.success(f"✅ File saved to Streamlit folder: `{path}`")
         st.success(f"📂 File copied to Spotfire folder: `{spotfire_folder}`")
-        st.success(f"💾 File saved to local disk: `{local_path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
 
 # === View Spotfire Dashboard ===
@@ -252,167 +261,55 @@ elif selected_tab == "📈 View Spotfire Dashboard":
     selected = st.selectbox("Select Dashboard", tests)
     st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
 
-# === Uploaded Log (Optimized) ===
+# === Uploaded Log ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
-
-    # Global controls
-    page_size = st.slider("Rows per page", min_value=5, max_value=100, value=20, step=5)
+    page_size = st.slider("Rows per page", 5, 100, 20, 5)
 
     def render_test_section(test_list, title):
         st.markdown(f"### {title}")
         for test in test_list:
-            streamlit_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
-            spotfire_folder   = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
-            archive_folder    = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
-            local_folder      = os.path.join(LOCAL_SAVE_FOLDER, test)
+            stream_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
+            spot_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
+            archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
+            local_folder = os.path.join(LOCAL_SAVE_FOLDER, test)
+            os.makedirs(stream_folder, exist_ok=True)
+            os.makedirs(spot_folder, exist_ok=True)
             os.makedirs(archive_folder, exist_ok=True)
-            os.makedirs(spotfire_folder, exist_ok=True)
             os.makedirs(local_folder, exist_ok=True)
 
-            files = list_files_fast(streamlit_folder)
+            files = list_files_fast(stream_folder)
             total = len(files)
             with st.expander(f"📁 {test} — {total} file(s)", expanded=False):
                 if total == 0:
                     st.info("No files in this test yet.")
                     continue
 
-                # Pagination state per test
-                state_key = f"page_{test}"
-                if state_key not in st.session_state:
-                    st.session_state[state_key] = 1
-                pages = max(1, (total + page_size - 1) // page_size)
-
-                left, mid, right = st.columns([0.25, 0.5, 0.25])
-                with left:
-                    st.caption("Navigation")
-                    prev = st.button("◀ Prev", key=f"prev_{test}")
-                with mid:
-                    st.caption("Page")
-                    st.session_state[state_key] = st.number_input(
-                        " ", min_value=1, max_value=pages, value=st.session_state[state_key], key=f"num_{test}")
-                with right:
-                    st.caption("Navigation")
-                    nxt = st.button("Next ▶", key=f"next_{test}")
-
-                if prev and st.session_state[state_key] > 1:
-                    st.session_state[state_key] -= 1
-                if nxt and st.session_state[state_key] < pages:
-                    st.session_state[state_key] += 1
-
-                start = (st.session_state[state_key] - 1) * page_size
-                end   = min(start + page_size, total)
+                start = 0
+                end = min(page_size, total)
                 page_files = files[start:end]
-
-                # Bulk actions
-                sel_all_key = f"sel_all_{test}_{start}"
-                select_all = st.checkbox(f"Select all on this page ({len(page_files)})", key=sel_all_key)
-                selected_files = []
-
-                # Row header
-                st.caption("Check ▸ Name ▸ Local Status ▸ Streamlit DL ▸ Local DL / Copy")
 
                 for f in page_files:
                     name = f["name"]
                     stream_path = f["path"]
                     local_path = os.path.join(local_folder, name)
-                    size = human_size(f["size"]) if os.path.exists(stream_path) else "?"
-                    mtime = datetime.fromtimestamp(f["mtime"]).strftime("%Y-%m-%d %H:%M")
                     missing_local = not os.path.exists(local_path)
 
-                    c1, c2, c3, c4, c5 = st.columns([0.06, 0.45, 0.18, 0.16, 0.15])
+                    c1, c2, c3 = st.columns([0.2, 0.5, 0.3])
                     with c1:
-                        if st.checkbox("", key=f"chk_{test}_{name}_{start}", value=select_all):
-                            selected_files.append(name)
+                        st.write(name)
                     with c2:
-                        row_html = f"<div class='file-row'>{name} — {size} — {mtime}</div>"
-                        st.markdown(row_html, unsafe_allow_html=True)
+                        st.write(f"Stream: {human_size(f['size'])}")
                     with c3:
                         if missing_local:
-                            st.markdown("<span class='missing-local'>Local copy missing ❌</span>", unsafe_allow_html=True)
-                        else:
-                            try:
-                                lsize = human_size(os.path.getsize(local_path))
-                                st.markdown(f"Local OK ({lsize})")
-                            except FileNotFoundError:
-                                st.markdown("<span class='missing-local'>Local copy missing ❌</span>", unsafe_allow_html=True)
-                    with c4:
-                        try:
-                            with open(stream_path, "rb") as fp:
-                                st.download_button("📥 Streamlit", fp.read(), file_name=name, key=f"dl_s_{test}_{name}_{start}")
-                        except FileNotFoundError:
-                            st.write("—")
-                    with c5:
-                        if os.path.exists(local_path):
-                            try:
-                                with open(local_path, "rb") as fp:
-                                    st.download_button("💾 Local", fp.read(), file_name=name, key=f"dl_l_{test}_{name}_{start}")
-                            except FileNotFoundError:
-                                st.write("—")
-                        else:
-                            if st.button("Copy to Local", key=f"copy_{test}_{name}_{start}"):
+                            if st.button(f"Copy to Local", key=f"copy_{test}_{name}"):
                                 try:
                                     shutil.copy2(stream_path, local_path)
-                                    st.success(f"✅ Copied to local: {local_path}")
-                                    st.experimental_rerun()
+                                    st.success(f"Copied to local: {local_path}")
                                 except Exception as e:
-                                    st.error(f"Failed to copy: {e}")
-
-                # Bulk buttons
-                b1, b2, b3 = st.columns(3)
-                with b1:
-                    if st.button(f"🗑 Delete Selected (Streamlit)", key=f"del_{test}_{start}"):
-                        for name in selected_files:
-                            try:
-                                os.remove(os.path.join(streamlit_folder, name))
-                            except FileNotFoundError:
-                                pass
-                        st.success("✅ Deleted from Streamlit folder")
-                        st.rerun()
-                with b2:
-                    if st.button(f"📦 Archive Selected (Streamlit)", key=f"arc_{test}_{start}"):
-                        for name in selected_files:
-                            src = os.path.join(streamlit_folder, name)
-                            dst = os.path.join(archive_folder, name)
-                            try:
-                                shutil.move(src, dst)
-                            except FileNotFoundError:
-                                pass
-                        st.success("📦 Archived in Streamlit folder")
-                        st.rerun()
-                with b3:
-                    if st.button(f"💾 Copy All Missing to Local", key=f"copy_missing_{test}_{start}"):
-                        copied = 0
-                        for f in page_files:
-                            name = f["name"]
-                            src = f["path"]
-                            dst = os.path.join(local_folder, name)
-                            if not os.path.exists(dst):
-                                try:
-                                    shutil.copy2(src, dst)
-                                    copied += 1
-                                except Exception:
-                                    pass
-                        st.success(f"✅ Copied {copied} file(s) to local")
-                        st.rerun()
-
-                # Spotfire files
-                st.divider()
-                st.caption(f"Spotfire folder for {test}")
-                spot_files = list_files_fast(spotfire_folder)
-                if not spot_files:
-                    st.info("Spotfire folder is empty.")
-                else:
-                    for sf in spot_files[:50]:  # safety cap
-                        sp1, sp2 = st.columns([0.75, 0.25])
-                        with sp1:
-                            st.markdown(f"📄 {sf['name']} — {human_size(sf['size'])}")
-                        with sp2:
-                            try:
-                                with open(sf["path"], "rb") as fp:
-                                    st.download_button("Download", fp.read(), file_name=sf["name"], key=f"dl_sp_{test}_{sf['name']}")
-                            except FileNotFoundError:
-                                st.write("—")
+                                    st.error(f"Failed: {e}")
+                        else:
+                            st.write("Local OK")
 
     render_test_section(mi_tests, "🛠 MI Tests")
     st.markdown("---")
@@ -420,4 +317,3 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
-
