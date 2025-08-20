@@ -111,30 +111,12 @@ h1, h2, h3, h4, h5, h6, .stMarkdown {{
     border-radius: 6px;
 }}
 .file-row {{
-    padding: 8px;
-    border-radius: 8px;
-    margin-bottom: 4px;
-    background-color: #111111;
-    transition: background 0.3s;
+    padding: 6px 8px;
+    border-radius: 10px;
+    margin-bottom: 6px;
 }}
 .file-row:hover {{
-    background-color: rgba(0, 255, 225, 0.05);
-}}
-.file-size {{
-    color: #00ffe1;
-    font-weight: bold;
-}}
-.archive-btn button:hover {{
-    background-color: orange !important;
-    color: white !important;
-}}
-.delete-btn button:hover {{
-    background-color: red !important;
-    color: white !important;
-}}
-.download-btn button:hover {{
-    background-color: #00ffe1 !important;
-    color: black !important;
+    background: rgba(255,255,255,0.06);
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -279,12 +261,129 @@ elif selected_tab == "📈 View Spotfire Dashboard":
     selected = st.selectbox("Select Dashboard", tests)
     st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
 
-# === Uploaded Log Tab (PROFESSIONAL) ===
+# === Uploaded Log (Professional with Select All) ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
     page_size = st.slider("Rows per page", 5, 100, 20, 5)
 
-    # --- Render function included from previous code with hover, color, batch, and confirmation ---
+    # --- Function defined first ---
+    def render_uploaded_log(test_list, title):
+        st.markdown(f"### {title}")
+
+        for test in test_list:
+            stream_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
+            archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
+            local_folder = os.path.join(LOCAL_SAVE_FOLDER, test)
+
+            os.makedirs(stream_folder, exist_ok=True)
+            os.makedirs(archive_folder, exist_ok=True)
+            os.makedirs(local_folder, exist_ok=True)
+
+            files = list_files_fast(stream_folder)
+            total = len(files)
+
+            with st.expander(f"📁 {test} — {total} file(s)", expanded=False):
+                if total == 0:
+                    st.info("No files in this test yet.")
+                    continue
+
+                # --- Select All checkbox ---
+                all_selected = st.checkbox(f"Select All for {test}", key=f"select_all_{test}")
+                if all_selected:
+                    selected_files = [f["name"] for f in files]
+                else:
+                    selected_files = st.multiselect("Select files", [f["name"] for f in files], key=f"select_{test}")
+
+                # --- Batch action buttons ---
+                col_download, col_archive, col_delete = st.columns([1,1,1])
+                with col_download:
+                    if st.button("📥 Download Selected", key=f"batch_download_{test}"):
+                        for fname in selected_files:
+                            path = os.path.join(stream_folder, fname)
+                            if os.path.exists(path):
+                                with open(path, "rb") as f:
+                                    st.download_button(
+                                        label=f"Download {fname}",
+                                        data=f.read(),
+                                        file_name=fname,
+                                        key=f"download_{test}_{fname}_batch"
+                                    )
+                with col_archive:
+                    if st.button("🗄 Archive Selected", key=f"batch_archive_{test}"):
+                        st.warning("⚠️ Are you sure you want to archive the selected files?")
+                        confirm = st.button("✅ Yes, archive selected", key=f"confirm_batch_archive_{test}")
+                        if confirm:
+                            for fname in selected_files:
+                                src = os.path.join(stream_folder, fname)
+                                dst = os.path.join(archive_folder, fname)
+                                try:
+                                    shutil.move(src, dst)
+                                except Exception as e:
+                                    st.error(f"Failed to archive {fname}: {e}")
+                            st.success("Selected files archived.")
+                            st.experimental_rerun()
+                with col_delete:
+                    if st.button("❌ Delete Selected", key=f"batch_delete_{test}"):
+                        st.warning("⚠️ Are you sure you want to delete the selected files?")
+                        confirm = st.button("✅ Yes, delete selected", key=f"confirm_batch_delete_{test}")
+                        if confirm:
+                            for fname in selected_files:
+                                path = os.path.join(stream_folder, fname)
+                                try:
+                                    os.remove(path)
+                                except Exception as e:
+                                    st.error(f"Failed to delete {fname}: {e}")
+                            st.success("Selected files deleted.")
+                            st.experimental_rerun()
+
+                st.markdown("---")
+                # --- Individual file rows ---
+                for f in files:
+                    name = f["name"]
+                    stream_path = f["path"]
+                    missing_local = not os.path.exists(os.path.join(local_folder, name))
+
+                    st.markdown(f"<div class='file-row'>", unsafe_allow_html=True)
+                    c1, c2, c3, c4, c5 = st.columns([0.5, 0.1, 0.1, 0.1, 0.1])
+                    with c1:
+                        st.markdown(f"**{name}**")
+                        if missing_local:
+                            st.caption("⚠️ Missing locally")
+                    with c2:
+                        st.markdown(f"<span class='file-size'>{human_size(f['size'])}</span>", unsafe_allow_html=True)
+                    with c3:
+                        st.markdown("<div class='download-btn'>", unsafe_allow_html=True)
+                        st.download_button(
+                            label="📥",
+                            data=open(stream_path, "rb").read(),
+                            file_name=name,
+                            help="Download this file",
+                            key=f"download_{test}_{name}",
+                            use_container_width=True
+                        )
+                        st.markdown("</div>", unsafe_allow_html=True)
+                    with c4:
+                        if st.button("🗄", key=f"archive_{test}_{name}_prompt"):
+                            st.warning(f"⚠️ Are you sure you want to archive **{name}**?")
+                            confirm = st.button(f"✅ Yes, archive {name}", key=f"confirm_archive_{test}_{name}")
+                            if confirm:
+                                try:
+                                    shutil.move(stream_path, os.path.join(archive_folder, name))
+                                    st.success(f"Archived: {name}")
+                                    st.experimental_rerun()
+                    with c5:
+                        if st.button("❌", key=f"delete_{test}_{name}_prompt"):
+                            st.warning(f"⚠️ Are you sure you want to delete **{name}**?")
+                            confirm = st.button(f"✅ Yes, delete {name}", key=f"confirm_delete_{test}_{name}")
+                            if confirm:
+                                try:
+                                    os.remove(stream_path)
+                                    st.success(f"Deleted: {name}")
+                                    st.experimental_rerun()
+                                except Exception as e:
+                                    st.error(f"Failed to delete: {e}")
+                    st.markdown("</div>", unsafe_allow_html=True)
+
     render_uploaded_log(mi_tests, "🛠 MI Tests")
     st.markdown("---")
     render_uploaded_log(cl_tests, "🧪 Chemlab Tests")
