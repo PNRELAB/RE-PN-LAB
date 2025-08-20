@@ -5,7 +5,6 @@ import base64
 import subprocess
 import sys
 import time
-import platform
 
 # === Auto-start file server ===
 def start_file_server():
@@ -83,6 +82,11 @@ label, .css-10trblm, .css-1cpxqw2, .css-1v0mbdj,
 .css-1d391kg, .stMarkdown p {{
     color: #ffffff !important;
 }}
+.missing-local {{
+    background-color: rgba(255, 0, 0, 0.2);
+    padding: 2px;
+    border-radius: 5px;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -116,7 +120,9 @@ if not check_password():
     st.stop()
 
 # === Config Constants ===
-SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
+SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"  # Streamlit folders
+LOCAL_SAVE_FOLDER = r"C:\PN-RE-LAB"     # Local disk folders
+os.makedirs(LOCAL_SAVE_FOLDER, exist_ok=True)
 
 SPOTFIRE_MI_URLS = {
     "TRH": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/TRH",
@@ -157,11 +163,18 @@ if selected_tab == "📁 MI Upload":
         path = os.path.join(folder, file.name)
         with open(path, "wb") as f:
             f.write(file.read())
-        # Copy to Spotfire folder
+
         shutil.copy2(path, os.path.join(spotfire_folder, file.name))
 
-        st.success(f"✅ File saved to `{path}`")
-        st.success(f"📂 File also copied to Spotfire folder: `{spotfire_folder}`")
+        # Save to local disk
+        local_folder = os.path.join(LOCAL_SAVE_FOLDER, selected_test)
+        os.makedirs(local_folder, exist_ok=True)
+        local_path = os.path.join(local_folder, file.name)
+        shutil.copy2(path, local_path)
+
+        st.success(f"✅ File saved to Streamlit folder: `{path}`")
+        st.success(f"📂 File copied to Spotfire folder: `{spotfire_folder}`")
+        st.success(f"💾 File saved to local disk: `{local_path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
 
 # === Upload Chemlab ===
@@ -178,11 +191,18 @@ elif selected_tab == "📁 Chemlab Upload":
         path = os.path.join(folder, file.name)
         with open(path, "wb") as f:
             f.write(file.read())
-        # Copy to Spotfire folder
+
         shutil.copy2(path, os.path.join(spotfire_folder, file.name))
 
-        st.success(f"✅ File saved to `{path}`")
-        st.success(f"📂 File also copied to Spotfire folder: `{spotfire_folder}`")
+        # Save to local disk
+        local_folder = os.path.join(LOCAL_SAVE_FOLDER, selected_test)
+        os.makedirs(local_folder, exist_ok=True)
+        local_path = os.path.join(local_folder, file.name)
+        shutil.copy2(path, local_path)
+
+        st.success(f"✅ File saved to Streamlit folder: `{path}`")
+        st.success(f"📂 File copied to Spotfire folder: `{spotfire_folder}`")
+        st.success(f"💾 File saved to local disk: `{local_path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
 
 # === View Spotfire Dashboard ===
@@ -201,51 +221,75 @@ elif selected_tab == "📋 Uploaded Log":
     def show_uploaded_files(test_list, title):
         st.markdown(f"### {title}")
         for test in test_list:
-            folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
+            streamlit_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
+            spotfire_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
             archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
-            spotfire_test_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
+            local_folder = os.path.join(LOCAL_SAVE_FOLDER, test)
             os.makedirs(archive_folder, exist_ok=True)
-            os.makedirs(spotfire_test_folder, exist_ok=True)
+            os.makedirs(spotfire_folder, exist_ok=True)
+            os.makedirs(local_folder, exist_ok=True)
 
-            if os.path.isdir(folder):
-                files = os.listdir(folder)
+            if os.path.isdir(streamlit_folder):
+                files = os.listdir(streamlit_folder)
                 if files:
                     st.markdown(f"#### 📁 {test}")
                     selected = []
                     select_all = st.checkbox(f"Select All ({test})", key=f"all_{test}")
                     for file in files:
-                        file_path = os.path.join(folder, file)
-                        col1, col2, col3 = st.columns([0.05, 0.5, 0.45])
+                        streamlit_file_path = os.path.join(streamlit_folder, file)
+                        local_file_path = os.path.join(local_folder, file)
+
+                        # Highlight missing local files
+                        style_start = "<div class='missing-local'>" if not os.path.exists(local_file_path) else ""
+                        style_end = "</div>" if not os.path.exists(local_file_path) else ""
+
+                        col1, col2, col3, col4, col5 = st.columns([0.05, 0.3, 0.25, 0.25, 0.15])
                         with col1:
                             if st.checkbox("", key=f"{test}_{file}", value=select_all):
                                 selected.append(file)
                         with col2:
-                            st.markdown(f"**{file}** ({os.path.getsize(file_path) // 1024} KB)")
+                            st.markdown(f"**{file}** (Streamlit: {os.path.getsize(streamlit_file_path)//1024} KB)")
                         with col3:
-                            with open(file_path, "rb") as f:
-                                st.download_button("📥 Download", f.read(), file_name=file, key=f"dl_{test}_{file}")
+                            if os.path.exists(local_file_path):
+                                st.markdown(f"Local copy exists ({os.path.getsize(local_file_path)//1024} KB)")
+                            else:
+                                st.markdown(f"{style_start}Local copy missing ❌{style_end}", unsafe_allow_html=True)
+                        with col4:
+                            # Download buttons
+                            with open(streamlit_file_path, "rb") as f:
+                                st.download_button(f"📥 Streamlit", f.read(), file_name=file, key=f"dl_streamlit_{file}")
+                            if os.path.exists(local_file_path):
+                                with open(local_file_path, "rb") as f:
+                                    st.download_button(f"💾 Local", f.read(), file_name=file, key=f"dl_local_{file}")
+                        with col5:
+                            # Copy to Local button
+                            if not os.path.exists(local_file_path):
+                                if st.button("💾 Copy to Local", key=f"copy_local_{file}"):
+                                    shutil.copy2(streamlit_file_path, local_file_path)
+                                    st.success(f"✅ File copied to local disk: {local_file_path}")
+                                    st.experimental_rerun()
 
-                    # Delete or Archive selected files
+                    # Delete or Archive selected files (Streamlit only)
                     colA, colB = st.columns(2)
                     with colA:
                         if st.button(f"🗑 Delete Selected in {test}", key=f"del_{test}"):
                             for file in selected:
-                                os.remove(os.path.join(folder, file))
-                            st.success("✅ Files deleted")
+                                os.remove(os.path.join(streamlit_folder, file))
+                            st.success("✅ Files deleted from Streamlit folder")
                             st.rerun()
                     with colB:
                         if st.button(f"📦 Archive Selected in {test}", key=f"arc_{test}"):
                             for file in selected:
-                                shutil.move(os.path.join(folder, file), os.path.join(archive_folder, file))
-                            st.success("📦 Files archived")
+                                shutil.move(os.path.join(streamlit_folder, file), os.path.join(archive_folder, file))
+                            st.success("📦 Files archived in Streamlit folder")
                             st.rerun()
 
-                    # ✅ Spotfire Folder Files with Download Buttons
+                    # Spotfire folder downloads
                     st.markdown(f"#### 🖥 Spotfire Folder for {test}")
-                    spotfire_files = os.listdir(spotfire_test_folder)
+                    spotfire_files = os.listdir(spotfire_folder)
                     if spotfire_files:
                         for f in spotfire_files:
-                            file_full_path = os.path.join(spotfire_test_folder, f)
+                            file_full_path = os.path.join(spotfire_folder, f)
                             with open(file_full_path, "rb") as file_data:
                                 st.download_button(
                                     label=f"📄 {f}",
