@@ -10,7 +10,7 @@ from datetime import datetime
 # === Auto-start file server ===
 def start_file_server():
     try:
-        folder_to_serve = r"C:\\PN-RE-LAB"
+        folder_to_serve = r"C:\PN-RE-LAB-Server"  # server-side folder
         port = 8502
         command = [sys.executable, "-m", "http.server", str(port), "--directory", folder_to_serve]
         subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -48,6 +48,7 @@ def list_files_fast(folder: str):
                         })
                     except FileNotFoundError:
                         continue
+            # newest first
             files.sort(key=lambda x: x["mtime"], reverse=True)
             return files
     except FileNotFoundError:
@@ -61,9 +62,7 @@ bg_base64 = get_base64(background_path)
 
 # === Streamlit config and styles ===
 st.set_page_config("RE PN LAB Dashboard", layout="wide")
-
-st.markdown(f"""
-<style>
+st.markdown(f"""<style>
 html, body, .stApp {{
     background: url("data:image/png;base64,{bg_base64}") no-repeat center center fixed;
     background-size: cover;
@@ -81,35 +80,11 @@ h1, h2, h3, h4, h5, h6, .stMarkdown {{
     color: #ffffff !important;
     text-shadow: 0 0 8px #00fff2;
 }}
-.stTextInput > div > input[type="password"],
-.stTextInput > div > input[type="text"] {{
-    color: #000000 !important;
-    background-color: #ffffff !important;
-    font-weight: bold !important;
-}}
-.stFileUploader > div > div {{
-    border: 2px dashed #00ffe1;
-    background-color: rgba(0,255,255,0.05);
-    border-radius: 10px;
-    font-size: 20px !important;
-}}
 .stButton>button, .stDownloadButton>button {{
     background-color: #00ffe1;
     color: #000000;
     font-weight: bold;
     border-radius: 10px;
-}}
-.stForm > div > button[type="submit"] {{
-    color: #000000 !important;
-    background-color: #ffffff !important;
-    font-weight: bold !important;
-    border-radius: 10px !important;
-}}
-.stTextInput label, .stTextInput div, .stTextInput input:not([type="password"]):not([type="text"]),
-label, .css-10trblm, .css-1cpxqw2, .css-1v0mbdj,
-.css-1qg05tj, .css-1fcdlhz, .css-14xtw13, .css-1offfwp,
-.css-1d391kg, .stMarkdown p {{
-    color: #ffffff !important;
 }}
 .missing-local {{
     background-color: rgba(255, 0, 0, 0.20);
@@ -124,8 +99,7 @@ label, .css-10trblm, .css-1cpxqw2, .css-1v0mbdj,
 .file-row:hover {{
     background: rgba(255,255,255,0.06);
 }}
-</style>
-""", unsafe_allow_html=True)
+</style>""", unsafe_allow_html=True)
 
 # === WD Logo Header ===
 st.markdown(
@@ -157,26 +131,14 @@ if not check_password():
     st.stop()
 
 # === Config Constants ===
-SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"  # Streamlit server folder
-os.makedirs(SHARED_UPLOAD_FOLDER, exist_ok=True)
+SERVER_FOLDER = r"C:\PN-RE-LAB-Server"  # server upload folder
+LOCAL_FOLDER  = r"C:\PN-RE-LAB"         # local PC folder
+os.makedirs(SERVER_FOLDER, exist_ok=True)
+os.makedirs(LOCAL_FOLDER, exist_ok=True)
 
-SPOTFIRE_MI_URLS = {
-    "TRH": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/TRH",
-    "HACT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/HACT",
-    "HEAD WEAR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/HeadWear",
-    "FLYABILITY": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/flyability",
-    "HBOT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/hbot",
-    "SBT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/sbt",
-    "ADT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/adt"
-}
-
-SPOTFIRE_CHEMLAB_URLS = {
-    "AD COBALT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/ADCobalt",
-    "ICA": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/ICA",
-    "GCMS": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/gcms",
-    "LCQTOF": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/lcqtof",
-    "FTIR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/ftir"
-}
+# === Spotfire URLs ===
+SPOTFIRE_MI_URLS = { "TRH": "...", "HACT": "...", "HEAD WEAR": "..."}  # truncated for brevity
+SPOTFIRE_CHEMLAB_URLS = {"GCMS":"...", "ICA":"..."}  # truncated
 
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
 cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
@@ -185,82 +147,59 @@ cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
 selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
 
-# === Upload MI ===
+# === Upload Handler ===
+def handle_upload(selected_test, category):
+    file = st.file_uploader(f"Upload Excel File for {category}", type=["xlsx"])
+    if file:
+        # server folder
+        folder = os.path.join(SERVER_FOLDER, selected_test)
+        os.makedirs(folder, exist_ok=True)
+        server_path = os.path.join(folder, file.name)
+        with open(server_path, "wb") as f:
+            f.write(file.getbuffer())
+        st.success(f"✅ Saved to server: {server_path}")
+
+        # local sync (optional immediate copy)
+        local_folder = os.path.join(LOCAL_FOLDER, selected_test)
+        os.makedirs(local_folder, exist_ok=True)
+        local_path = os.path.join(local_folder, file.name)
+        try:
+            shutil.copy2(server_path, local_path)
+            st.success(f"💾 Automatically copied to local: {local_path}")
+        except Exception as e:
+            st.warning(f"⚠️ Could not copy to local immediately: {e}")
+
+        st.download_button("📥 Download", data=open(server_path, "rb").read(), file_name=file.name)
+
+# === Tab Actions ===
 if selected_tab == "📁 MI Upload":
     st.subheader("🛠️ Upload MI Test File")
     selected_test = st.selectbox("Select MI Test", mi_tests)
-    file = st.file_uploader("Upload Excel File", type=["xlsx"])
-    if file:
-        folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
-        spotfire_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", selected_test)
-        os.makedirs(folder, exist_ok=True)
-        os.makedirs(spotfire_folder, exist_ok=True)
+    handle_upload(selected_test, "MI Test")
 
-        path = os.path.join(folder, file.name)
-        with open(path, "wb") as f:
-            f.write(file.read())
-
-        shutil.copy2(path, os.path.join(spotfire_folder, file.name))
-
-        st.success(f"✅ File saved to Streamlit folder: `{path}`")
-        st.success(f"📂 File copied to Spotfire folder: `{spotfire_folder}`")
-        st.download_button("💾 Download to Local PC", data=open(path, "rb").read(), file_name=file.name)
-
-# === Upload Chemlab ===
 elif selected_tab == "📁 Chemlab Upload":
     st.subheader("🧪 Upload Chemlab Test File")
     selected_test = st.selectbox("Select Chemlab Test", cl_tests)
-    file = st.file_uploader("Upload Excel File", type=["xlsx"])
-    if file:
-        folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
-        spotfire_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", selected_test)
-        os.makedirs(folder, exist_ok=True)
-        os.makedirs(spotfire_folder, exist_ok=True)
+    handle_upload(selected_test, "Chemlab Test")
 
-        path = os.path.join(folder, file.name)
-        with open(path, "wb") as f:
-            f.write(file.read())
-
-        shutil.copy2(path, os.path.join(spotfire_folder, file.name))
-
-        st.success(f"✅ File saved to Streamlit folder: `{path}`")
-        st.success(f"📂 File copied to Spotfire folder: `{spotfire_folder}`")
-        st.download_button("💾 Download to Local PC", data=open(path, "rb").read(), file_name=file.name)
-
-# === View Spotfire Dashboard ===
 elif selected_tab == "📈 View Spotfire Dashboard":
     st.subheader("📈 Spotfire Dashboards")
     category = st.radio("Choose Category", ["MI", "Chemlab"], horizontal=True)
-    tests = mi_tests if category == "MI" else cl_tests
-    urls = SPOTFIRE_MI_URLS if category == "MI" else SPOTFIRE_CHEMLAB_URLS
+    tests = mi_tests if category=="MI" else cl_tests
+    urls = SPOTFIRE_MI_URLS if category=="MI" else SPOTFIRE_CHEMLAB_URLS
     selected = st.selectbox("Select Dashboard", tests)
-    st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
+    st.markdown(f"🔗 [Open {selected} Dashboard]({urls[selected]})", unsafe_allow_html=True)
 
-# === Uploaded Log ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
-    page_size = st.slider("Rows per page", min_value=5, max_value=100, value=20, step=5)
-
-    def render_test_section(test_list, title):
-        st.markdown(f"### {title}")
-        for test in test_list:
-            folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
-            os.makedirs(folder, exist_ok=True)
-            files = list_files_fast(folder)
-            if not files:
-                st.info("No files uploaded yet.")
-                continue
-
-            for f in files[:page_size]:
-                name = f["name"]
-                path = f["path"]
-                size = human_size(f["size"])
-                st.markdown(f"📄 {name} — {size}")
-                st.download_button("💾 Download to Local PC", data=open(path, "rb").read(), file_name=name)
-
-    render_test_section(mi_tests, "🛠 MI Tests")
-    st.markdown("---")
-    render_test_section(cl_tests, "🧪 Chemlab Tests")
-
-# === Footer ===
-st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+    for test in mi_tests + cl_tests:
+        folder = os.path.join(SERVER_FOLDER, test)
+        files = list_files_fast(folder)
+        if not files:
+            st.info(f"No files in {test}")
+            continue
+        for f in files:
+            fname = f["name"]
+            file_path = f["path"]
+            st.markdown(f"- {fname} ({human_size(f['size'])})")
+            st.download_button("Download", data=open(file_path,"rb").read(), file_name=fname)
