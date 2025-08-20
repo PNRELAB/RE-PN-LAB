@@ -10,7 +10,7 @@ from datetime import datetime
 # === Auto-start file server ===
 def start_file_server():
     try:
-        folder_to_serve = r"C:\PN-RE-LAB-Server"  # server-side folder
+        folder_to_serve = r"C:\PN-RE-LAB"
         port = 8502
         command = [sys.executable, "-m", "http.server", str(port), "--directory", folder_to_serve]
         subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -48,7 +48,6 @@ def list_files_fast(folder: str):
                         })
                     except FileNotFoundError:
                         continue
-            # newest first
             files.sort(key=lambda x: x["mtime"], reverse=True)
             return files
     except FileNotFoundError:
@@ -62,7 +61,9 @@ bg_base64 = get_base64(background_path)
 
 # === Streamlit config and styles ===
 st.set_page_config("RE PN LAB Dashboard", layout="wide")
-st.markdown(f"""<style>
+
+st.markdown(f"""
+<style>
 html, body, .stApp {{
     background: url("data:image/png;base64,{bg_base64}") no-repeat center center fixed;
     background-size: cover;
@@ -80,11 +81,29 @@ h1, h2, h3, h4, h5, h6, .stMarkdown {{
     color: #ffffff !important;
     text-shadow: 0 0 8px #00fff2;
 }}
+.stTextInput > div > input[type="password"],
+.stTextInput > div > input[type="text"] {{
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    font-weight: bold !important;
+}}
+.stFileUploader > div > div {{
+    border: 2px dashed #00ffe1;
+    background-color: rgba(0,255,255,0.05);
+    border-radius: 10px;
+    font-size: 20px !important;
+}}
 .stButton>button, .stDownloadButton>button {{
     background-color: #00ffe1;
     color: #000000;
     font-weight: bold;
     border-radius: 10px;
+}}
+.stForm > div > button[type="submit"] {{
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    font-weight: bold !important;
+    border-radius: 10px !important;
 }}
 .missing-local {{
     background-color: rgba(255, 0, 0, 0.20);
@@ -99,7 +118,8 @@ h1, h2, h3, h4, h5, h6, .stMarkdown {{
 .file-row:hover {{
     background: rgba(255,255,255,0.06);
 }}
-</style>""", unsafe_allow_html=True)
+</style>
+""", unsafe_allow_html=True)
 
 # === WD Logo Header ===
 st.markdown(
@@ -113,7 +133,6 @@ st.markdown(
 def check_password():
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
-
     if not st.session_state["authenticated"]:
         with st.form("login_form", clear_on_submit=False):
             password = st.text_input("🔐 Enter Password", type="password", key="password_input")
@@ -131,14 +150,18 @@ if not check_password():
     st.stop()
 
 # === Config Constants ===
-SERVER_FOLDER = r"C:\PN-RE-LAB-Server"  # server upload folder
-LOCAL_FOLDER  = r"C:\PN-RE-LAB"         # local PC folder
-os.makedirs(SERVER_FOLDER, exist_ok=True)
-os.makedirs(LOCAL_FOLDER, exist_ok=True)
+SHARED_UPLOAD_FOLDER = r"C:\PN-RE-LAB"
+LOCAL_SAVE_FOLDER   = r"C:\PN-RE-LAB"
+os.makedirs(LOCAL_SAVE_FOLDER, exist_ok=True)
 
 # === Spotfire URLs ===
-SPOTFIRE_MI_URLS = { "TRH": "...", "HACT": "...", "HEAD WEAR": "..."}  # truncated for brevity
-SPOTFIRE_CHEMLAB_URLS = {"GCMS":"...", "ICA":"..."}  # truncated
+SPOTFIRE_MI_URLS = {
+    "TRH": "...", "HACT": "...", "HEAD WEAR": "...", "FLYABILITY": "...",
+    "HBOT": "...", "SBT": "...", "ADT": "..."
+}
+SPOTFIRE_CHEMLAB_URLS = {
+    "AD COBALT": "...", "ICA": "...", "GCMS": "...", "LCQTOF": "...", "FTIR": "..."
+}
 
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
 cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
@@ -147,59 +170,136 @@ cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
 selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
 
-# === Upload Handler ===
-def handle_upload(selected_test, category):
-    file = st.file_uploader(f"Upload Excel File for {category}", type=["xlsx"])
-    if file:
-        # server folder
-        folder = os.path.join(SERVER_FOLDER, selected_test)
-        os.makedirs(folder, exist_ok=True)
-        server_path = os.path.join(folder, file.name)
-        with open(server_path, "wb") as f:
-            f.write(file.getbuffer())
-        st.success(f"✅ Saved to server: {server_path}")
+# === Helper: save uploaded file to local safely ===
+def save_to_local(src_path, dst_folder):
+    os.makedirs(dst_folder, exist_ok=True)
+    dst_path = os.path.join(dst_folder, os.path.basename(src_path))
+    try:
+        shutil.copy2(src_path, dst_path)
+        return dst_path, True
+    except Exception as e:
+        return dst_path, str(e)
 
-        # local sync (optional immediate copy)
-        local_folder = os.path.join(LOCAL_FOLDER, selected_test)
-        os.makedirs(local_folder, exist_ok=True)
-        local_path = os.path.join(local_folder, file.name)
-        try:
-            shutil.copy2(server_path, local_path)
-            st.success(f"💾 Automatically copied to local: {local_path}")
-        except Exception as e:
-            st.warning(f"⚠️ Could not copy to local immediately: {e}")
-
-        st.download_button("📥 Download", data=open(server_path, "rb").read(), file_name=file.name)
-
-# === Tab Actions ===
+# === Upload MI ===
 if selected_tab == "📁 MI Upload":
     st.subheader("🛠️ Upload MI Test File")
     selected_test = st.selectbox("Select MI Test", mi_tests)
-    handle_upload(selected_test, "MI Test")
+    file = st.file_uploader("Upload Excel File", type=["xlsx"])
+    if file:
+        folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
+        spotfire_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", selected_test)
+        os.makedirs(folder, exist_ok=True)
+        os.makedirs(spotfire_folder, exist_ok=True)
 
+        path = os.path.join(folder, file.name)
+        with open(path, "wb") as f:
+            f.write(file.read())
+
+        shutil.copy2(path, os.path.join(spotfire_folder, file.name))
+
+        # === SAVE TO LOCAL DISK ===
+        local_folder = os.path.join(LOCAL_SAVE_FOLDER, selected_test)
+        local_path, saved = save_to_local(path, local_folder)
+        if saved is True:
+            st.success(f"💾 File saved to local disk: `{local_path}`")
+        else:
+            st.error(f"❌ Failed to save to local: {saved}")
+
+        st.success(f"✅ File saved to Streamlit folder: `{path}`")
+        st.success(f"📂 File copied to Spotfire folder: `{spotfire_folder}`")
+        st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
+
+# === Upload Chemlab ===
 elif selected_tab == "📁 Chemlab Upload":
     st.subheader("🧪 Upload Chemlab Test File")
     selected_test = st.selectbox("Select Chemlab Test", cl_tests)
-    handle_upload(selected_test, "Chemlab Test")
+    file = st.file_uploader("Upload Excel File", type=["xlsx"])
+    if file:
+        folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
+        spotfire_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", selected_test)
+        os.makedirs(folder, exist_ok=True)
+        os.makedirs(spotfire_folder, exist_ok=True)
 
+        path = os.path.join(folder, file.name)
+        with open(path, "wb") as f:
+            f.write(file.read())
+
+        shutil.copy2(path, os.path.join(spotfire_folder, file.name))
+
+        # === SAVE TO LOCAL DISK ===
+        local_folder = os.path.join(LOCAL_SAVE_FOLDER, selected_test)
+        local_path, saved = save_to_local(path, local_folder)
+        if saved is True:
+            st.success(f"💾 File saved to local disk: `{local_path}`")
+        else:
+            st.error(f"❌ Failed to save to local: {saved}")
+
+        st.success(f"✅ File saved to Streamlit folder: `{path}`")
+        st.success(f"📂 File copied to Spotfire folder: `{spotfire_folder}`")
+        st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
+
+# === View Spotfire Dashboard ===
 elif selected_tab == "📈 View Spotfire Dashboard":
     st.subheader("📈 Spotfire Dashboards")
     category = st.radio("Choose Category", ["MI", "Chemlab"], horizontal=True)
-    tests = mi_tests if category=="MI" else cl_tests
-    urls = SPOTFIRE_MI_URLS if category=="MI" else SPOTFIRE_CHEMLAB_URLS
+    tests = mi_tests if category == "MI" else cl_tests
+    urls = SPOTFIRE_MI_URLS if category == "MI" else SPOTFIRE_CHEMLAB_URLS
     selected = st.selectbox("Select Dashboard", tests)
-    st.markdown(f"🔗 [Open {selected} Dashboard]({urls[selected]})", unsafe_allow_html=True)
+    st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
 
+# === Uploaded Log ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
-    for test in mi_tests + cl_tests:
-        folder = os.path.join(SERVER_FOLDER, test)
-        files = list_files_fast(folder)
-        if not files:
-            st.info(f"No files in {test}")
-            continue
-        for f in files:
-            fname = f["name"]
-            file_path = f["path"]
-            st.markdown(f"- {fname} ({human_size(f['size'])})")
-            st.download_button("Download", data=open(file_path,"rb").read(), file_name=fname)
+    page_size = st.slider("Rows per page", 5, 100, 20, 5)
+
+    def render_test_section(test_list, title):
+        st.markdown(f"### {title}")
+        for test in test_list:
+            stream_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
+            spot_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
+            archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
+            local_folder = os.path.join(LOCAL_SAVE_FOLDER, test)
+            os.makedirs(stream_folder, exist_ok=True)
+            os.makedirs(spot_folder, exist_ok=True)
+            os.makedirs(archive_folder, exist_ok=True)
+            os.makedirs(local_folder, exist_ok=True)
+
+            files = list_files_fast(stream_folder)
+            total = len(files)
+            with st.expander(f"📁 {test} — {total} file(s)", expanded=False):
+                if total == 0:
+                    st.info("No files in this test yet.")
+                    continue
+
+                start = 0
+                end = min(page_size, total)
+                page_files = files[start:end]
+
+                for f in page_files:
+                    name = f["name"]
+                    stream_path = f["path"]
+                    local_path = os.path.join(local_folder, name)
+                    missing_local = not os.path.exists(local_path)
+
+                    c1, c2, c3 = st.columns([0.2, 0.5, 0.3])
+                    with c1:
+                        st.write(name)
+                    with c2:
+                        st.write(f"Stream: {human_size(f['size'])}")
+                    with c3:
+                        if missing_local:
+                            if st.button(f"Copy to Local", key=f"copy_{test}_{name}"):
+                                try:
+                                    shutil.copy2(stream_path, local_path)
+                                    st.success(f"Copied to local: {local_path}")
+                                except Exception as e:
+                                    st.error(f"Failed: {e}")
+                        else:
+                            st.write("Local OK")
+
+    render_test_section(mi_tests, "🛠 MI Tests")
+    st.markdown("---")
+    render_test_section(cl_tests, "🧪 Chemlab Tests")
+
+# === Footer ===
+st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
