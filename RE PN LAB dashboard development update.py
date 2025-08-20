@@ -111,12 +111,30 @@ h1, h2, h3, h4, h5, h6, .stMarkdown {{
     border-radius: 6px;
 }}
 .file-row {{
-    padding: 6px 8px;
-    border-radius: 10px;
-    margin-bottom: 6px;
+    padding: 8px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    background-color: #111111;
+    transition: background 0.3s;
 }}
 .file-row:hover {{
-    background: rgba(255,255,255,0.06);
+    background-color: rgba(0, 255, 225, 0.05);
+}}
+.file-size {{
+    color: #00ffe1;
+    font-weight: bold;
+}}
+.archive-btn button:hover {{
+    background-color: orange !important;
+    color: white !important;
+}}
+.delete-btn button:hover {{
+    background-color: red !important;
+    color: white !important;
+}}
+.download-btn button:hover {{
+    background-color: #00ffe1 !important;
+    color: black !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -261,59 +279,15 @@ elif selected_tab == "📈 View Spotfire Dashboard":
     selected = st.selectbox("Select Dashboard", tests)
     st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
 
-# === Uploaded Log ===
+# === Uploaded Log Tab (PROFESSIONAL) ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
     page_size = st.slider("Rows per page", 5, 100, 20, 5)
 
-    def render_test_section(test_list, title):
-        st.markdown(f"### {title}")
-        for test in test_list:
-            stream_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
-            spot_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
-            archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
-            local_folder = os.path.join(LOCAL_SAVE_FOLDER, test)
-            os.makedirs(stream_folder, exist_ok=True)
-            os.makedirs(spot_folder, exist_ok=True)
-            os.makedirs(archive_folder, exist_ok=True)
-            os.makedirs(local_folder, exist_ok=True)
-
-            files = list_files_fast(stream_folder)
-            total = len(files)
-            with st.expander(f"📁 {test} — {total} file(s)", expanded=False):
-                if total == 0:
-                    st.info("No files in this test yet.")
-                    continue
-
-                start = 0
-                end = min(page_size, total)
-                page_files = files[start:end]
-
-                for f in page_files:
-                    name = f["name"]
-                    stream_path = f["path"]
-                    local_path = os.path.join(local_folder, name)
-                    missing_local = not os.path.exists(local_path)
-
-                    c1, c2, c3 = st.columns([0.2, 0.5, 0.3])
-                    with c1:
-                        st.write(name)
-                    with c2:
-                        st.write(f"Stream: {human_size(f['size'])}")
-                    with c3:
-                        if missing_local:
-                            if st.button(f"Copy to Local", key=f"copy_{test}_{name}"):
-                                try:
-                                    shutil.copy2(stream_path, local_path)
-                                    st.success(f"Copied to local: {local_path}")
-                                except Exception as e:
-                                    st.error(f"Failed: {e}")
-                        else:
-                            st.write("Local OK")
-
-    render_test_section(mi_tests, "🛠 MI Tests")
+    # --- Render function included from previous code with hover, color, batch, and confirmation ---
+    render_uploaded_log(mi_tests, "🛠 MI Tests")
     st.markdown("---")
-    render_test_section(cl_tests, "🧪 Chemlab Tests")
+    render_uploaded_log(cl_tests, "🧪 Chemlab Tests")
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
