@@ -139,14 +139,8 @@ SPOTFIRE_CHEMLAB_URLS = {
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
 cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 
-# === Helper: Spotfire-ready file link ===
-def generate_spotfire_file_link(file_path):
-    if os.path.exists(file_path):
-        return f"file:///{file_path.replace(os.sep, '/')}"
-    return None
-
 # === Tabs ===
-tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
+tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📋 Uploaded Log"]
 selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
 
 # === Upload MI ===
@@ -163,11 +157,6 @@ if selected_tab == "📁 MI Upload":
         st.success(f"✅ File saved to `{path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
 
-        # Spotfire Analyst link
-        sf_link = generate_spotfire_file_link(path)
-        if sf_link:
-            st.markdown(f"📤 [Open `{file.name}` in Spotfire Analyst]({sf_link})", unsafe_allow_html=True)
-
 # === Upload Chemlab ===
 elif selected_tab == "📁 Chemlab Upload":
     st.subheader("🧪 Upload Chemlab Test File")
@@ -182,25 +171,11 @@ elif selected_tab == "📁 Chemlab Upload":
         st.success(f"✅ File saved to `{path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
 
-        # Spotfire Analyst link
-        sf_link = generate_spotfire_file_link(path)
-        if sf_link:
-            st.markdown(f"📤 [Open `{file.name}` in Spotfire Analyst]({sf_link})", unsafe_allow_html=True)
-
-# === View Spotfire Dashboard ===
-elif selected_tab == "📈 View Spotfire Dashboard":
-    st.subheader("📈 Spotfire Dashboards")
-    category = st.radio("Choose Category", ["MI", "Chemlab"], horizontal=True)
-    tests = mi_tests if category == "MI" else cl_tests
-    urls = SPOTFIRE_MI_URLS if category == "MI" else SPOTFIRE_CHEMLAB_URLS
-    selected = st.selectbox("Select Dashboard", tests)
-    st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
-
 # === Uploaded Log ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
 
-    def show_uploaded_files(test_list, spotfire_dict, title):
+    def show_uploaded_files(test_list, title):
         st.markdown(f"### {title}")
         for test in test_list:
             folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
@@ -214,7 +189,7 @@ elif selected_tab == "📋 Uploaded Log":
                     select_all = st.checkbox(f"Select All ({test})", key=f"all_{test}")
                     for file in files:
                         file_path = os.path.join(folder, file)
-                        col1, col2, col3 = st.columns([0.05, 0.5, 0.45])
+                        col1, col2, col3, col4 = st.columns([0.05, 0.5, 0.25, 0.2])
                         with col1:
                             if st.checkbox("", key=f"{test}_{file}", value=select_all):
                                 selected.append(file)
@@ -223,6 +198,10 @@ elif selected_tab == "📋 Uploaded Log":
                         with col3:
                             with open(file_path, "rb") as f:
                                 st.download_button("📥 Download", f.read(), file_name=file, key=f"dl_{test}_{file}")
+                        with col4:
+                            if os.path.exists(file_path):
+                                sf_link = f"file:///{file_path.replace(os.sep, '/')}"
+                                st.markdown(f"[📤 Open in Spotfire Analyst]({sf_link})", unsafe_allow_html=True)
                     colA, colB = st.columns(2)
                     with colA:
                         if st.button(f"🗑 Delete Selected in {test}", key=f"del_{test}"):
@@ -237,9 +216,9 @@ elif selected_tab == "📋 Uploaded Log":
                             st.success("📦 Files archived")
                             st.rerun()
 
-    show_uploaded_files(mi_tests, SPOTFIRE_MI_URLS, "🛠 MI Tests")
+    show_uploaded_files(mi_tests, "🛠 MI Tests")
     st.markdown("---")
-    show_uploaded_files(cl_tests, SPOTFIRE_CHEMLAB_URLS, "🧪 Chemlab Tests")
+    show_uploaded_files(cl_tests, "🧪 Chemlab Tests")
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
