@@ -117,6 +117,21 @@ if not check_password():
 
 # === Config Constants ===
 SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
+SPOTFIRE_FOLDER_MAPPING = {
+    # Map tests to Spotfire library folders
+    "AD COBALT": r"C:\\PN-RE-LAB\\Spotfire\\ADCobalt",
+    "ICA": r"C:\\PN-RE-LAB\\Spotfire\\ICA",
+    "GCMS": r"C:\\PN-RE-LAB\\Spotfire\\GCMS",
+    "LCQTOF": r"C:\\PN-RE-LAB\\Spotfire\\LCQTOF",
+    "FTIR": r"C:\\PN-RE-LAB\\Spotfire\\FTIR",
+    "TRH": r"C:\\PN-RE-LAB\\Spotfire\\TRH",
+    "HACT": r"C:\\PN-RE-LAB\\Spotfire\\HACT",
+    "HEAD WEAR": r"C:\\PN-RE-LAB\\Spotfire\\HeadWear",
+    "FLYABILITY": r"C:\\PN-RE-LAB\\Spotfire\\flyability",
+    "HBOT": r"C:\\PN-RE-LAB\\Spotfire\\HBOT",
+    "SBT": r"C:\\PN-RE-LAB\\Spotfire\\SBT",
+    "ADT": r"C:\\PN-RE-LAB\\Spotfire\\ADT"
+}
 
 SPOTFIRE_MI_URLS = {
     "TRH": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/TRH",
@@ -141,19 +156,35 @@ cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 
 # === Helper to open local folder ===
 def open_local_folder(path):
-    try:
-        if platform.system() == "Windows":
-            subprocess.Popen(f'explorer "{path}"')
-        elif platform.system() == "Darwin":  # macOS
-            subprocess.Popen(["open", path])
-        else:  # Linux
-            subprocess.Popen(["xdg-open", path])
-    except Exception as e:
-        st.warning(f"⚠️ Could not open folder: {e}")
+    if platform.system() == "Windows":
+        subprocess.Popen(f'explorer "{path}"')
+    elif platform.system() == "Darwin":  # macOS
+        subprocess.Popen(["open", path])
+    else:  # Linux
+        # On server, just display path instead of opening
+        st.info(f"Folder path: {path}")
 
 # === Tabs ===
 tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
 selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
+
+# === Upload function with Spotfire copy ===
+def handle_upload(file, selected_test):
+    folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, file.name)
+    with open(path, "wb") as f:
+        f.write(file.read())
+    st.success(f"✅ File saved to `{path}`")
+    st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
+    
+    # Copy file to Spotfire library folder
+    spotfire_folder = SPOTFIRE_FOLDER_MAPPING.get(selected_test)
+    if spotfire_folder:
+        os.makedirs(spotfire_folder, exist_ok=True)
+        shutil.copy2(path, spotfire_folder)
+        st.info(f"📂 File also copied to Spotfire library folder: `{spotfire_folder}`")
+    return folder
 
 # === Upload MI ===
 if selected_tab == "📁 MI Upload":
@@ -161,34 +192,7 @@ if selected_tab == "📁 MI Upload":
     selected_test = st.selectbox("Select MI Test", mi_tests)
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
     if file:
-        folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
-        os.makedirs(folder, exist_ok=True)
-        path = os.path.join(folder, file.name)
-        with open(path, "wb") as f:
-            f.write(file.read())
-        st.success(f"✅ File saved to `{path}`")
-        st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
-
-        # Open folder button
-        if st.button(f"📂 Open Local Folder for {selected_test}"):
-            open_local_folder(folder)
-
-        # Spotfire instructions
-        st.info(
-            f"📌 To upload to Spotfire Library under `/ADHOC/RELIABILITY/{selected_test}`:\n"
-            f"1. Open Spotfire Analyst.\n"
-            f"2. File → Open → Local File → select `{path}`\n"
-            f"3. File → Save As → Spotfire Library → choose `/ADHOC/RELIABILITY/{selected_test}`"
-        )
-
-        # Optional: launch Spotfire Analyst
-        if platform.system() == "Windows":
-            if st.button(f"🔹 Open {file.name} in Spotfire Analyst"):
-                try:
-                    subprocess.Popen([r"C:\Program Files\TIBCO\Spotfire Analyst\Spotfire.Dxp.exe", path])
-                    st.success("✅ Spotfire Analyst launched with the file")
-                except Exception as e:
-                    st.warning(f"⚠️ Could not launch Spotfire Analyst: {e}")
+        folder = handle_upload(file, selected_test)
 
 # === Upload Chemlab ===
 elif selected_tab == "📁 Chemlab Upload":
@@ -196,31 +200,7 @@ elif selected_tab == "📁 Chemlab Upload":
     selected_test = st.selectbox("Select Chemlab Test", cl_tests)
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
     if file:
-        folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
-        os.makedirs(folder, exist_ok=True)
-        path = os.path.join(folder, file.name)
-        with open(path, "wb") as f:
-            f.write(file.read())
-        st.success(f"✅ File saved to `{path}`")
-        st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
-
-        if st.button(f"📂 Open Local Folder for {selected_test}"):
-            open_local_folder(folder)
-
-        st.info(
-            f"📌 To upload to Spotfire Library under `/ADHOC/RELIABILITY/{selected_test}`:\n"
-            f"1. Open Spotfire Analyst.\n"
-            f"2. File → Open → Local File → select `{path}`\n"
-            f"3. File → Save As → Spotfire Library → choose `/ADHOC/RELIABILITY/{selected_test}`"
-        )
-
-        if platform.system() == "Windows":
-            if st.button(f"🔹 Open {file.name} in Spotfire Analyst"):
-                try:
-                    subprocess.Popen([r"C:\Program Files\TIBCO\Spotfire Analyst\Spotfire.Dxp.exe", path])
-                    st.success("✅ Spotfire Analyst launched with the file")
-                except Exception as e:
-                    st.warning(f"⚠️ Could not launch Spotfire Analyst: {e}")
+        folder = handle_upload(file, selected_test)
 
 # === View Spotfire Dashboard ===
 elif selected_tab == "📈 View Spotfire Dashboard":
@@ -234,7 +214,6 @@ elif selected_tab == "📈 View Spotfire Dashboard":
 # === Uploaded Log ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
-
     def show_uploaded_files(test_list, title):
         st.markdown(f"### {title}")
         for test in test_list:
@@ -249,15 +228,18 @@ elif selected_tab == "📋 Uploaded Log":
                     select_all = st.checkbox(f"Select All ({test})", key=f"all_{test}")
                     for file in files:
                         file_path = os.path.join(folder, file)
-                        col1, col2, col3 = st.columns([0.05, 0.5, 0.45])
+                        col1, col2, col3, col4 = st.columns([0.05, 0.45, 0.3, 0.2])
                         with col1:
                             if st.checkbox("", key=f"{test}_{file}", value=select_all):
                                 selected.append(file)
                         with col2:
-                            st.markdown(f"**{file}** ({os.path.getsize(file_path) // 1024} KB)")
+                            st.markdown(f"**{file}** ({os.path.getsize(file_path)//1024} KB)")
                         with col3:
                             with open(file_path, "rb") as f:
                                 st.download_button("📥 Download", f.read(), file_name=file, key=f"dl_{test}_{file}")
+                        with col4:
+                            if st.button(f"📂 Open Folder", key=f"open_{test}_{file}"):
+                                open_local_folder(folder)
                     colA, colB = st.columns(2)
                     with colA:
                         if st.button(f"🗑 Delete Selected in {test}", key=f"del_{test}"):
