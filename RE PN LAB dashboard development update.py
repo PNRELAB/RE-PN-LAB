@@ -140,7 +140,7 @@ def check_password():
             if submitted:
                 if password == "PNRELAB":
                     st.session_state["authenticated"] = True
-                    st.experimental_rerun()
+                    st.rerun()
                 else:
                     st.error("❌ Incorrect password")
         return False
@@ -261,13 +261,17 @@ elif selected_tab == "📈 View Spotfire Dashboard":
     selected = st.selectbox("Select Dashboard", tests)
     st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
 
-# === Uploaded Log with fixed download button ===
+# === Uploaded Log with professional buttons ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
     page_size = st.slider("Rows per page", 5, 100, 20, 5)
 
+    if "refresh_log" not in st.session_state:
+        st.session_state["refresh_log"] = False
+
     def render_uploaded_log(test_list, title):
         st.markdown(f"### {title}")
+        container = st.container()  # Container to rerender
         for test in test_list:
             stream_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
             spot_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
@@ -280,7 +284,7 @@ elif selected_tab == "📋 Uploaded Log":
 
             files = list_files_fast(stream_folder)
             total = len(files)
-            with st.expander(f"📁 {test} — {total} file(s)", expanded=False):
+            with container.expander(f"📁 {test} — {total} file(s)", expanded=False):
                 if total == 0:
                     st.info("No files in this test yet.")
                     continue
@@ -321,7 +325,7 @@ elif selected_tab == "📋 Uploaded Log":
                             try:
                                 shutil.move(stream_path, os.path.join(archive_folder, name))
                                 st.success(f"Archived: {name}")
-                                st.experimental_rerun()
+                                st.session_state["refresh_log"] = True
                             except Exception as e:
                                 st.error(f"Failed to archive: {e}")
 
@@ -331,13 +335,18 @@ elif selected_tab == "📋 Uploaded Log":
                             try:
                                 os.remove(stream_path)
                                 st.success(f"Deleted: {name}")
-                                st.experimental_rerun()
+                                st.session_state["refresh_log"] = True
                             except Exception as e:
                                 st.error(f"Failed to delete: {e}")
 
     render_uploaded_log(mi_tests, "🛠 MI Tests")
     st.markdown("---")
     render_uploaded_log(cl_tests, "🧪 Chemlab Tests")
+
+    # Refresh container if flagged
+    if st.session_state.get("refresh_log", False):
+        st.session_state["refresh_log"] = False
+        st.experimental_rerun()
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
