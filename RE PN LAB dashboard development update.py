@@ -372,17 +372,18 @@ elif selected_tab == "📋 Uploaded Log":
                                     st.success(f"Archived: {name}")
                                     st.experimental_rerun()
                     with c5:
-                        if st.button("❌", key=f"delete_{test}_{name}_prompt"):
-                            st.warning(f"⚠️ Are you sure you want to delete **{name}**?")
-                            confirm = st.button(f"✅ Yes, delete {name}", key=f"confirm_delete_{test}_{name}")
-                            if confirm:
-                                try:
-                                    os.remove(stream_path)
-                                    st.success(f"Deleted: {name}")
-                                    st.experimental_rerun()
-                                except Exception as e:
-                                    st.error(f"Failed to delete: {e}")
-                    st.markdown("</div>", unsafe_allow_html=True)
+                        delete_prompt = st.button("❌", key=f"delete_{test}_{name}_prompt")
+                        if delete_prompt:
+                                confirm_delete = st.button(f"✅ Yes, delete {name}", key=f"confirm_delete_{test}_{name}")
+                                if confirm_delete:
+                                    try:
+                                        os.remove(stream_path)
+                                        st.success(f"Deleted: {name}")
+                                        st.experimental_rerun()
+                                    except Exception as e:
+                                        st.error(f"Failed to delete: {e}")
+
+                        st.markdown("</div>", unsafe_allow_html=True)
 
     render_uploaded_log(mi_tests, "🛠 MI Tests")
     st.markdown("---")
@@ -390,3 +391,4 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
