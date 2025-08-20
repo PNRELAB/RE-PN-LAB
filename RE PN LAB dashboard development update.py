@@ -5,6 +5,7 @@ import base64
 import subprocess
 import sys
 import time
+from datetime import datetime
 
 # === Auto-start file server ===
 def start_file_server():
@@ -19,14 +20,43 @@ def start_file_server():
 
 start_file_server()
 
-# === Image to base64 ===
-def get_base64(image_path):
+# === Helpers ===
+def get_base64(image_path: str) -> str:
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
+def human_size(num_bytes: int) -> str:
+    for unit in ["B", "KB", "MB", "GB", "TB"]:
+        if num_bytes < 1024.0:
+            return f"{num_bytes:.1f} {unit}"
+        num_bytes /= 1024.0
+    return f"{num_bytes:.1f} PB"
+
+def list_files_fast(folder: str):
+    try:
+        with os.scandir(folder) as it:
+            files = []
+            for entry in it:
+                if entry.is_file():
+                    try:
+                        stat = entry.stat()
+                        files.append({
+                            "name": entry.name,
+                            "path": entry.path,
+                            "size": stat.st_size,
+                            "mtime": stat.st_mtime,
+                        })
+                    except FileNotFoundError:
+                        continue
+            # newest first
+            files.sort(key=lambda x: x["mtime"], reverse=True)
+            return files
+    except FileNotFoundError:
+        return []
+
+# === Branding assets ===
 logo_path = "WD logo.png"
 background_path = "Slide1.PNG"
-
 logo_base64 = get_base64(logo_path)
 bg_base64 = get_base64(background_path)
 
@@ -83,9 +113,17 @@ label, .css-10trblm, .css-1cpxqw2, .css-1v0mbdj,
     color: #ffffff !important;
 }}
 .missing-local {{
-    background-color: rgba(255, 0, 0, 0.2);
-    padding: 2px;
-    border-radius: 5px;
+    background-color: rgba(255, 0, 0, 0.20);
+    padding: 2px 6px;
+    border-radius: 6px;
+}}
+.file-row {{
+    padding: 6px 8px;
+    border-radius: 10px;
+    margin-bottom: 6px;
+}}
+.file-row:hover {{
+    background: rgba(255,255,255,0.06);
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -121,7 +159,7 @@ if not check_password():
 
 # === Config Constants ===
 SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"  # Streamlit folders
-LOCAL_SAVE_FOLDER = r"C:\PN-RE-LAB"     # Local disk folders
+LOCAL_SAVE_FOLDER   = r"C:\\PN-RE-LAB"   # Local disk folders (same path on local PC)
 os.makedirs(LOCAL_SAVE_FOLDER, exist_ok=True)
 
 SPOTFIRE_MI_URLS = {
@@ -214,95 +252,171 @@ elif selected_tab == "📈 View Spotfire Dashboard":
     selected = st.selectbox("Select Dashboard", tests)
     st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
 
-# === Uploaded Log ===
+# === Uploaded Log (Optimized) ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
 
-    def show_uploaded_files(test_list, title):
+    # Global controls
+    page_size = st.slider("Rows per page", min_value=5, max_value=100, value=20, step=5)
+
+    def render_test_section(test_list, title):
         st.markdown(f"### {title}")
         for test in test_list:
             streamlit_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
-            spotfire_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
-            archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
-            local_folder = os.path.join(LOCAL_SAVE_FOLDER, test)
+            spotfire_folder   = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
+            archive_folder    = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
+            local_folder      = os.path.join(LOCAL_SAVE_FOLDER, test)
             os.makedirs(archive_folder, exist_ok=True)
             os.makedirs(spotfire_folder, exist_ok=True)
             os.makedirs(local_folder, exist_ok=True)
 
-            if os.path.isdir(streamlit_folder):
-                files = os.listdir(streamlit_folder)
-                if files:
-                    st.markdown(f"#### 📁 {test}")
-                    selected = []
-                    select_all = st.checkbox(f"Select All ({test})", key=f"all_{test}")
-                    for file in files:
-                        streamlit_file_path = os.path.join(streamlit_folder, file)
-                        local_file_path = os.path.join(local_folder, file)
+            files = list_files_fast(streamlit_folder)
+            total = len(files)
+            with st.expander(f"📁 {test} — {total} file(s)", expanded=False):
+                if total == 0:
+                    st.info("No files in this test yet.")
+                    continue
 
-                        # Highlight missing local files
-                        style_start = "<div class='missing-local'>" if not os.path.exists(local_file_path) else ""
-                        style_end = "</div>" if not os.path.exists(local_file_path) else ""
+                # Pagination state per test
+                state_key = f"page_{test}"
+                if state_key not in st.session_state:
+                    st.session_state[state_key] = 1
+                pages = max(1, (total + page_size - 1) // page_size)
 
-                        col1, col2, col3, col4, col5 = st.columns([0.05, 0.3, 0.25, 0.25, 0.15])
-                        with col1:
-                            if st.checkbox("", key=f"{test}_{file}", value=select_all):
-                                selected.append(file)
-                        with col2:
-                            st.markdown(f"**{file}** (Streamlit: {os.path.getsize(streamlit_file_path)//1024} KB)")
-                        with col3:
-                            if os.path.exists(local_file_path):
-                                st.markdown(f"Local copy exists ({os.path.getsize(local_file_path)//1024} KB)")
-                            else:
-                                st.markdown(f"{style_start}Local copy missing ❌{style_end}", unsafe_allow_html=True)
-                        with col4:
-                            # Download buttons
-                            with open(streamlit_file_path, "rb") as f:
-                                st.download_button(f"📥 Streamlit", f.read(), file_name=file, key=f"dl_streamlit_{file}")
-                            if os.path.exists(local_file_path):
-                                with open(local_file_path, "rb") as f:
-                                    st.download_button(f"💾 Local", f.read(), file_name=file, key=f"dl_local_{file}")
-                        with col5:
-                            # Copy to Local button
-                            if not os.path.exists(local_file_path):
-                                if st.button("💾 Copy to Local", key=f"copy_local_{file}"):
-                                    shutil.copy2(streamlit_file_path, local_file_path)
-                                    st.success(f"✅ File copied to local disk: {local_file_path}")
+                left, mid, right = st.columns([0.25, 0.5, 0.25])
+                with left:
+                    st.caption("Navigation")
+                    prev = st.button("◀ Prev", key=f"prev_{test}")
+                with mid:
+                    st.caption("Page")
+                    st.session_state[state_key] = st.number_input(
+                        " ", min_value=1, max_value=pages, value=st.session_state[state_key], key=f"num_{test}")
+                with right:
+                    st.caption("Navigation")
+                    nxt = st.button("Next ▶", key=f"next_{test}")
+
+                if prev and st.session_state[state_key] > 1:
+                    st.session_state[state_key] -= 1
+                if nxt and st.session_state[state_key] < pages:
+                    st.session_state[state_key] += 1
+
+                start = (st.session_state[state_key] - 1) * page_size
+                end   = min(start + page_size, total)
+                page_files = files[start:end]
+
+                # Bulk actions
+                sel_all_key = f"sel_all_{test}_{start}"
+                select_all = st.checkbox(f"Select all on this page ({len(page_files)})", key=sel_all_key)
+                selected_files = []
+
+                # Row header
+                st.caption("Check ▸ Name ▸ Local Status ▸ Streamlit DL ▸ Local DL / Copy")
+
+                for f in page_files:
+                    name = f["name"]
+                    stream_path = f["path"]
+                    local_path = os.path.join(local_folder, name)
+                    size = human_size(f["size"]) if os.path.exists(stream_path) else "?"
+                    mtime = datetime.fromtimestamp(f["mtime"]).strftime("%Y-%m-%d %H:%M")
+                    missing_local = not os.path.exists(local_path)
+
+                    c1, c2, c3, c4, c5 = st.columns([0.06, 0.45, 0.18, 0.16, 0.15])
+                    with c1:
+                        if st.checkbox("", key=f"chk_{test}_{name}_{start}", value=select_all):
+                            selected_files.append(name)
+                    with c2:
+                        row_html = f"<div class='file-row'>{name} — {size} — {mtime}</div>"
+                        st.markdown(row_html, unsafe_allow_html=True)
+                    with c3:
+                        if missing_local:
+                            st.markdown("<span class='missing-local'>Local copy missing ❌</span>", unsafe_allow_html=True)
+                        else:
+                            try:
+                                lsize = human_size(os.path.getsize(local_path))
+                                st.markdown(f"Local OK ({lsize})")
+                            except FileNotFoundError:
+                                st.markdown("<span class='missing-local'>Local copy missing ❌</span>", unsafe_allow_html=True)
+                    with c4:
+                        try:
+                            with open(stream_path, "rb") as fp:
+                                st.download_button("📥 Streamlit", fp.read(), file_name=name, key=f"dl_s_{test}_{name}_{start}")
+                        except FileNotFoundError:
+                            st.write("—")
+                    with c5:
+                        if os.path.exists(local_path):
+                            try:
+                                with open(local_path, "rb") as fp:
+                                    st.download_button("💾 Local", fp.read(), file_name=name, key=f"dl_l_{test}_{name}_{start}")
+                            except FileNotFoundError:
+                                st.write("—")
+                        else:
+                            if st.button("Copy to Local", key=f"copy_{test}_{name}_{start}"):
+                                try:
+                                    shutil.copy2(stream_path, local_path)
+                                    st.success(f"✅ Copied to local: {local_path}")
                                     st.experimental_rerun()
+                                except Exception as e:
+                                    st.error(f"Failed to copy: {e}")
 
-                    # Delete or Archive selected files (Streamlit only)
-                    colA, colB = st.columns(2)
-                    with colA:
-                        if st.button(f"🗑 Delete Selected in {test}", key=f"del_{test}"):
-                            for file in selected:
-                                os.remove(os.path.join(streamlit_folder, file))
-                            st.success("✅ Files deleted from Streamlit folder")
-                            st.rerun()
-                    with colB:
-                        if st.button(f"📦 Archive Selected in {test}", key=f"arc_{test}"):
-                            for file in selected:
-                                shutil.move(os.path.join(streamlit_folder, file), os.path.join(archive_folder, file))
-                            st.success("📦 Files archived in Streamlit folder")
-                            st.rerun()
+                # Bulk buttons
+                b1, b2, b3 = st.columns(3)
+                with b1:
+                    if st.button(f"🗑 Delete Selected (Streamlit)", key=f"del_{test}_{start}"):
+                        for name in selected_files:
+                            try:
+                                os.remove(os.path.join(streamlit_folder, name))
+                            except FileNotFoundError:
+                                pass
+                        st.success("✅ Deleted from Streamlit folder")
+                        st.rerun()
+                with b2:
+                    if st.button(f"📦 Archive Selected (Streamlit)", key=f"arc_{test}_{start}"):
+                        for name in selected_files:
+                            src = os.path.join(streamlit_folder, name)
+                            dst = os.path.join(archive_folder, name)
+                            try:
+                                shutil.move(src, dst)
+                            except FileNotFoundError:
+                                pass
+                        st.success("📦 Archived in Streamlit folder")
+                        st.rerun()
+                with b3:
+                    if st.button(f"💾 Copy All Missing to Local", key=f"copy_missing_{test}_{start}"):
+                        copied = 0
+                        for f in page_files:
+                            name = f["name"]
+                            src = f["path"]
+                            dst = os.path.join(local_folder, name)
+                            if not os.path.exists(dst):
+                                try:
+                                    shutil.copy2(src, dst)
+                                    copied += 1
+                                except Exception:
+                                    pass
+                        st.success(f"✅ Copied {copied} file(s) to local")
+                        st.experimental_rerun()
 
-                    # Spotfire folder downloads
-                    st.markdown(f"#### 🖥 Spotfire Folder for {test}")
-                    spotfire_files = os.listdir(spotfire_folder)
-                    if spotfire_files:
-                        for f in spotfire_files:
-                            file_full_path = os.path.join(spotfire_folder, f)
-                            with open(file_full_path, "rb") as file_data:
-                                st.download_button(
-                                    label=f"📄 {f}",
-                                    data=file_data,
-                                    file_name=f,
-                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                )
-                    else:
-                        st.info("Spotfire folder is empty.")
+                # Spotfire files
+                st.divider()
+                st.caption(f"Spotfire folder for {test}")
+                spot_files = list_files_fast(spotfire_folder)
+                if not spot_files:
+                    st.info("Spotfire folder is empty.")
+                else:
+                    for sf in spot_files[:50]:  # safety cap
+                        sp1, sp2 = st.columns([0.75, 0.25])
+                        with sp1:
+                            st.markdown(f"📄 {sf['name']} — {human_size(sf['size'])}")
+                        with sp2:
+                            try:
+                                with open(sf["path"], "rb") as fp:
+                                    st.download_button("Download", fp.read(), file_name=sf["name"], key=f"dl_sp_{test}_{sf['name']}")
+                            except FileNotFoundError:
+                                st.write("—")
 
-    show_uploaded_files(mi_tests, "🛠 MI Tests")
+    render_test_section(mi_tests, "🛠 MI Tests")
     st.markdown("---")
-    show_uploaded_files(cl_tests, "🧪 Chemlab Tests")
+    render_test_section(cl_tests, "🧪 Chemlab Tests")
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
