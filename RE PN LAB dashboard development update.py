@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 import platform
+import urllib.parse
 
 # === Auto-start file server ===
 def start_file_server():
@@ -139,18 +140,6 @@ SPOTFIRE_CHEMLAB_URLS = {
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
 cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 
-# === Helper to open local folder ===
-def open_local_folder(path):
-    try:
-        if platform.system() == "Windows":
-            subprocess.Popen(f'explorer "{path}"')
-        elif platform.system() == "Darwin":  # macOS
-            subprocess.Popen(["open", path])
-        else:  # Linux
-            subprocess.Popen(["xdg-open", path])
-    except Exception as e:
-        st.warning(f"⚠️ Cannot open folder: {e}")
-
 # === Tabs ===
 tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
 selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
@@ -166,13 +155,12 @@ if selected_tab == "📁 MI Upload":
         path = os.path.join(folder, file.name)
         with open(path, "wb") as f:
             f.write(file.read())
-        st.success(f"✅ File saved to `{path}`")
-
         # Copy to Spotfire folder
         spotfire_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", selected_test)
         os.makedirs(spotfire_folder, exist_ok=True)
-        shutil.copy2(path, spotfire_folder)
-        st.info(f"📂 File also copied to Spotfire folder: `{spotfire_folder}`")
+        shutil.copy(path, spotfire_folder)
+        st.success(f"✅ File saved to `{path}`\n📂 Also copied to Spotfire folder: `{spotfire_folder}`")
+        st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
 
 # === Upload Chemlab ===
 elif selected_tab == "📁 Chemlab Upload":
@@ -185,13 +173,12 @@ elif selected_tab == "📁 Chemlab Upload":
         path = os.path.join(folder, file.name)
         with open(path, "wb") as f:
             f.write(file.read())
-        st.success(f"✅ File saved to `{path}`")
-
         # Copy to Spotfire folder
         spotfire_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", selected_test)
         os.makedirs(spotfire_folder, exist_ok=True)
-        shutil.copy2(path, spotfire_folder)
-        st.info(f"📂 File also copied to Spotfire folder: `{spotfire_folder}`")
+        shutil.copy(path, spotfire_folder)
+        st.success(f"✅ File saved to `{path}`\n📂 Also copied to Spotfire folder: `{spotfire_folder}`")
+        st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
 
 # === View Spotfire Dashboard ===
 elif selected_tab == "📈 View Spotfire Dashboard":
@@ -210,29 +197,30 @@ elif selected_tab == "📋 Uploaded Log":
         st.markdown(f"### {title}")
         for test in test_list:
             folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
-            spotfire_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
             archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
             os.makedirs(archive_folder, exist_ok=True)
+
             if os.path.isdir(folder):
                 files = os.listdir(folder)
                 if files:
                     st.markdown(f"#### 📁 {test}")
                     selected = []
                     select_all = st.checkbox(f"Select All ({test})", key=f"all_{test}")
+
                     for file in files:
                         file_path = os.path.join(folder, file)
-                        col1, col2, col3, col4 = st.columns([0.05, 0.4, 0.35, 0.2])
+                        file_url = f"http://localhost:8502/{urllib.parse.quote(os.path.join(test, file).replace(os.sep, '/'))}"
+
+                        col1, col2, col3 = st.columns([0.05, 0.5, 0.45])
                         with col1:
                             if st.checkbox("", key=f"{test}_{file}", value=select_all):
                                 selected.append(file)
                         with col2:
-                            st.markdown(f"**{file}** ({os.path.getsize(file_path)//1024} KB)")
+                            st.markdown(f"**{file}** ({os.path.getsize(file_path) // 1024} KB)")
+                            st.markdown(f"🔗 [Open in Spotfire Folder]({file_url})", unsafe_allow_html=True)
                         with col3:
                             with open(file_path, "rb") as f:
                                 st.download_button("📥 Download", f.read(), file_name=file, key=f"dl_{test}_{file}")
-                        with col4:
-                            if st.button(f"📂 Open Spotfire Folder", key=f"open_{test}_{file}"):
-                                open_local_folder(spotfire_folder)
 
                     colA, colB = st.columns(2)
                     with colA:
@@ -240,13 +228,14 @@ elif selected_tab == "📋 Uploaded Log":
                             for file in selected:
                                 os.remove(os.path.join(folder, file))
                             st.success("✅ Files deleted")
-                            st.rerun()
+                            st.experimental_rerun()
+
                     with colB:
                         if st.button(f"📦 Archive Selected in {test}", key=f"arc_{test}"):
                             for file in selected:
                                 shutil.move(os.path.join(folder, file), os.path.join(archive_folder, file))
                             st.success("📦 Files archived")
-                            st.rerun()
+                            st.experimental_rerun()
 
     show_uploaded_files(mi_tests, "🛠 MI Tests")
     st.markdown("---")
