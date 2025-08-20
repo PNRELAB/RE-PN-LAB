@@ -143,6 +143,18 @@ cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📋 Uploaded Log"]
 selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
 
+# === Helper to open file in Spotfire Analyst (Windows only) ===
+def open_in_spotfire(file_path):
+    if platform.system() == "Windows":
+        try:
+            # Update path to your Spotfire Analyst executable
+            spotfire_exe = r"C:\Program Files\TIBCO\Spotfire Analyst\Spotfire.Dxp.exe"
+            subprocess.Popen([spotfire_exe, file_path])
+        except Exception as e:
+            st.error(f"⚠️ Failed to open Spotfire Analyst: {e}")
+    else:
+        st.warning("⚠️ Opening in Spotfire Analyst is only supported on Windows.")
+
 # === Upload MI ===
 if selected_tab == "📁 MI Upload":
     st.subheader("🛠️ Upload MI Test File")
@@ -189,7 +201,7 @@ elif selected_tab == "📋 Uploaded Log":
                     select_all = st.checkbox(f"Select All ({test})", key=f"all_{test}")
                     for file in files:
                         file_path = os.path.join(folder, file)
-                        col1, col2, col3, col4 = st.columns([0.05, 0.5, 0.25, 0.2])
+                        col1, col2, col3 = st.columns([0.05, 0.5, 0.45])
                         with col1:
                             if st.checkbox("", key=f"{test}_{file}", value=select_all):
                                 selected.append(file)
@@ -198,10 +210,9 @@ elif selected_tab == "📋 Uploaded Log":
                         with col3:
                             with open(file_path, "rb") as f:
                                 st.download_button("📥 Download", f.read(), file_name=file, key=f"dl_{test}_{file}")
-                        with col4:
-                            if os.path.exists(file_path):
-                                sf_link = f"file:///{file_path.replace(os.sep, '/')}"
-                                st.markdown(f"[📤 Open in Spotfire Analyst]({sf_link})", unsafe_allow_html=True)
+                            if platform.system() == "Windows":
+                                if st.button(f"📤 Open in Spotfire Analyst", key=f"spotfire_{test}_{file}"):
+                                    open_in_spotfire(file_path)
                     colA, colB = st.columns(2)
                     with colA:
                         if st.button(f"🗑 Delete Selected in {test}", key=f"del_{test}"):
