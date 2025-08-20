@@ -10,7 +10,7 @@ from datetime import datetime
 # === Auto-start file server ===
 def start_file_server():
     try:
-        folder_to_serve = r"C:\\PN-RE-LAB"
+        folder_to_serve = os.path.abspath(".")  # Serve current app folder
         port = 8502
         command = [sys.executable, "-m", "http.server", str(port), "--directory", folder_to_serve]
         subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -53,19 +53,6 @@ def list_files_fast(folder: str):
     except FileNotFoundError:
         return []
 
-# === Helper: save uploaded file safely ===
-def save_to_local(src_path, dst_folder):
-    os.makedirs(dst_folder, exist_ok=True)
-    dst_path = os.path.join(dst_folder, os.path.basename(src_path))
-    try:
-        if os.path.abspath(src_path) != os.path.abspath(dst_path):
-            shutil.copy2(src_path, dst_path)
-        return dst_path, True
-    except shutil.SameFileError:
-        return dst_path, False
-    except Exception as e:
-        return dst_path, str(e)
-
 # === Branding assets ===
 logo_path = "WD logo.png"
 background_path = "Slide1.PNG"
@@ -94,34 +81,11 @@ h1, h2, h3, h4, h5, h6, .stMarkdown {{
     color: #ffffff !important;
     text-shadow: 0 0 8px #00fff2;
 }}
-.stTextInput > div > input[type="password"],
-.stTextInput > div > input[type="text"] {{
-    color: #000000 !important;
-    background-color: #ffffff !important;
-    font-weight: bold !important;
-}}
-.stFileUploader > div > div {{
-    border: 2px dashed #00ffe1;
-    background-color: rgba(0,255,255,0.05);
-    border-radius: 10px;
-    font-size: 20px !important;
-}}
 .stButton>button, .stDownloadButton>button {{
     background-color: #00ffe1;
     color: #000000;
     font-weight: bold;
     border-radius: 10px;
-}}
-.stForm > div > button[type="submit"] {{
-    color: #000000 !important;
-    background-color: #ffffff !important;
-    font-weight: bold !important;
-    border-radius: 10px !important;
-}}
-.missing-local {{
-    background-color: rgba(255, 0, 0, 0.20);
-    padding: 2px 6px;
-    border-radius: 6px;
 }}
 .file-row {{
     padding: 6px 8px;
@@ -148,12 +112,12 @@ def check_password():
         st.session_state["authenticated"] = False
     if not st.session_state["authenticated"]:
         with st.form("login_form", clear_on_submit=False):
-            password = st.text_input("🔐 Enter Password", type="password", key="password_input")
+            password = st.text_input("🔐 Enter Password", type="password")
             submitted = st.form_submit_button("Login")
             if submitted:
                 if password == "PNRELAB":
                     st.session_state["authenticated"] = True
-                    st.rerun()
+                    st.experimental_rerun()
                 else:
                     st.error("❌ Incorrect password")
         return False
@@ -163,18 +127,15 @@ if not check_password():
     st.stop()
 
 # === Config Constants ===
-SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
-LOCAL_SAVE_FOLDER   = r"C:\\PN-RE-LAB"
-DOWNLOAD_FOLDER     = r"C:\\PN-RE-LAB\\Downloads"
+SHARED_UPLOAD_FOLDER = os.path.join(os.getcwd(), "SHARED_UPLOADS")
+DOWNLOADS_FOLDER = os.path.join(os.getcwd(), "DOWNLOADS")
+LOCAL_SAVE_FOLDER = os.path.join(os.getcwd(), "LOCAL")
+os.makedirs(SHARED_UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(DOWNLOADS_FOLDER, exist_ok=True)
 os.makedirs(LOCAL_SAVE_FOLDER, exist_ok=True)
-os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
-SPOTFIRE_MI_URLS = {
-    "TRH": "...", "HACT": "...", "HEAD WEAR": "...", "FLYABILITY": "...", "HBOT": "...", "SBT": "...", "ADT": "..."
-}
-SPOTFIRE_CHEMLAB_URLS = {
-    "AD COBALT": "...", "ICA": "...", "GCMS": "...", "LCQTOF": "...", "FTIR": "..."
-}
+SPOTFIRE_MI_URLS = {"TRH": "#", "HACT": "#"}
+SPOTFIRE_CHEMLAB_URLS = {"AD COBALT": "#", "ICA": "#"}
 
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
 cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
@@ -183,86 +144,98 @@ cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
 selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
 
-# === Upload MI / Chemlab sections ===
-def handle_upload(selected_test, file, folder_type):
-    folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
-    spotfire_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", selected_test)
-    download_folder = os.path.join(DOWNLOAD_FOLDER, selected_test)
-    os.makedirs(folder, exist_ok=True)
-    os.makedirs(spotfire_folder, exist_ok=True)
-    os.makedirs(download_folder, exist_ok=True)
+# === Helper: save uploaded file to folder ===
+def save_to_local(src_path, dst_folder):
+    os.makedirs(dst_folder, exist_ok=True)
+    dst_path = os.path.join(dst_folder, os.path.basename(src_path))
+    try:
+        if os.path.abspath(src_path) != os.path.abspath(dst_path):
+            shutil.copy2(src_path, dst_path)
+        return dst_path, True
+    except shutil.SameFileError:
+        return dst_path, False
+    except Exception as e:
+        return dst_path, str(e)
 
-    path = os.path.join(folder, file.name)
-    with open(path, "wb") as f:
-        f.write(file.read())
-
-    shutil.copy2(path, os.path.join(spotfire_folder, file.name))
-    download_path, saved = save_to_local(path, download_folder)
-
-    if saved is True:
-        st.success(f"💾 File saved to downloads: `{download_path}`")
-    elif saved is False:
-        st.info(f"💾 File already exists in downloads: `{download_path}`")
-    else:
-        st.error(f"❌ Failed to save to downloads: {saved}")
-
-    st.download_button(
-        label="📥 Download",
-        data=open(download_path, "rb").read(),
-        file_name=file.name,
-        key=f"download_{selected_test}_{file.name}"
-    )
-
+# === Upload MI ===
 if selected_tab == "📁 MI Upload":
     st.subheader("🛠️ Upload MI Test File")
     selected_test = st.selectbox("Select MI Test", mi_tests)
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
     if file:
-        handle_upload(selected_test, file, "MI")
+        folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
+        download_folder = os.path.join(DOWNLOADS_FOLDER, selected_test)
+        os.makedirs(folder, exist_ok=True)
+        os.makedirs(download_folder, exist_ok=True)
 
+        path = os.path.join(folder, file.name)
+        with open(path, "wb") as f:
+            f.write(file.read())
+
+        download_path, saved = save_to_local(path, download_folder)
+
+        st.success(f"💾 File saved to downloads folder: `{download_path}`")
+        st.download_button(
+            label="📥 Download",
+            data=open(download_path, "rb").read(),
+            file_name=file.name,
+            key=f"download_{selected_test}_{file.name}"
+        )
+
+# === Upload Chemlab ===
 elif selected_tab == "📁 Chemlab Upload":
     st.subheader("🧪 Upload Chemlab Test File")
     selected_test = st.selectbox("Select Chemlab Test", cl_tests)
     file = st.file_uploader("Upload Excel File", type=["xlsx"])
     if file:
-        handle_upload(selected_test, file, "Chemlab")
+        folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
+        download_folder = os.path.join(DOWNLOADS_FOLDER, selected_test)
+        os.makedirs(folder, exist_ok=True)
+        os.makedirs(download_folder, exist_ok=True)
 
-# === View Spotfire Dashboard ===
-elif selected_tab == "📈 View Spotfire Dashboard":
-    st.subheader("📈 Spotfire Dashboards")
-    category = st.radio("Choose Category", ["MI", "Chemlab"], horizontal=True)
-    tests = mi_tests if category == "MI" else cl_tests
-    urls = SPOTFIRE_MI_URLS if category == "MI" else SPOTFIRE_CHEMLAB_URLS
-    selected = st.selectbox("Select Dashboard", tests)
-    st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
+        path = os.path.join(folder, file.name)
+        with open(path, "wb") as f:
+            f.write(file.read())
 
-# === Uploaded Log with professional buttons ===
+        download_path, saved = save_to_local(path, download_folder)
+
+        st.success(f"💾 File saved to downloads folder: `{download_path}`")
+        st.download_button(
+            label="📥 Download",
+            data=open(download_path, "rb").read(),
+            file_name=file.name,
+            key=f"download_{selected_test}_{file.name}"
+        )
+
+# === Uploaded Log ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
-    page_size = st.slider("Rows per page", 5, 100, 20, 5)
+    page_size = st.slider("Rows per page", 5, 50, 20)
 
     if "refresh_log" not in st.session_state:
         st.session_state["refresh_log"] = False
 
     def render_uploaded_log(test_list, title):
         st.markdown(f"### {title}")
-        container = st.container()  # Container to rerender
+        container = st.container()
         for test in test_list:
             stream_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
+            download_folder = os.path.join(DOWNLOADS_FOLDER, test)
             archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
-            download_folder = os.path.join(DOWNLOAD_FOLDER, test)
             os.makedirs(stream_folder, exist_ok=True)
-            os.makedirs(archive_folder, exist_ok=True)
             os.makedirs(download_folder, exist_ok=True)
+            os.makedirs(archive_folder, exist_ok=True)
 
             files = list_files_fast(stream_folder)
             total = len(files)
+
             with container.expander(f"📁 {test} — {total} file(s)", expanded=False):
                 if total == 0:
-                    st.info("No files in this test yet.")
+                    st.info("No files yet.")
                     continue
 
-                for f in files[:page_size]:
+                page_files = files[:page_size]
+                for f in page_files:
                     name = f["name"]
                     stream_path = f["path"]
                     download_path = os.path.join(download_folder, name)
@@ -270,8 +243,9 @@ elif selected_tab == "📋 Uploaded Log":
 
                     c1, c2, c3, c4, c5 = st.columns([0.3, 0.2, 0.2, 0.2, 0.2])
                     with c1: st.write(name)
-                    with c2: st.write(f"Stream: {human_size(f['size'])}")
+                    with c2: st.write(f"Size: {human_size(f['size'])}")
 
+                    # Download button
                     with c3:
                         with open(download_path, "rb") as file_data:
                             st.download_button(
@@ -281,6 +255,7 @@ elif selected_tab == "📋 Uploaded Log":
                                 key=f"download_{test}_{name}"
                             )
 
+                    # Archive
                     with c4:
                         if st.button("📂 Archive", key=f"archive_{test}_{name}"):
                             try:
@@ -290,6 +265,7 @@ elif selected_tab == "📋 Uploaded Log":
                             except Exception as e:
                                 st.error(f"Failed to archive: {e}")
 
+                    # Delete
                     with c5:
                         if st.button("🗑️ Delete", key=f"delete_{test}_{name}"):
                             try:
