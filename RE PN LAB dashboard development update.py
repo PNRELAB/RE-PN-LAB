@@ -261,23 +261,20 @@ elif selected_tab == "📈 View Spotfire Dashboard":
     selected = st.selectbox("Select Dashboard", tests)
     st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
 
-# === Uploaded Log with Professional Buttons ===
+# === Uploaded Log with fixed download button ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
-    
-    # Manual refresh button
-    if st.button("🔄 Refresh List"):
-        st.session_state['refresh'] = True
-
     page_size = st.slider("Rows per page", 5, 100, 20, 5)
 
     def render_uploaded_log(test_list, title):
         st.markdown(f"### {title}")
         for test in test_list:
             stream_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
+            spot_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
             archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
             local_folder = os.path.join(LOCAL_SAVE_FOLDER, test)
             os.makedirs(stream_folder, exist_ok=True)
+            os.makedirs(spot_folder, exist_ok=True)
             os.makedirs(archive_folder, exist_ok=True)
             os.makedirs(local_folder, exist_ok=True)
 
@@ -298,46 +295,43 @@ elif selected_tab == "📋 Uploaded Log":
                     local_path = os.path.join(local_folder, name)
                     missing_local = not os.path.exists(local_path)
 
-                    c1, c2, c3, c4, c5 = st.columns([0.4, 0.15, 0.15, 0.15, 0.15])
+                    c1, c2, c3, c4, c5 = st.columns([0.3, 0.2, 0.2, 0.2, 0.2])
                     with c1:
                         st.write(name)
-
-                    # Download button (persistent file)
                     with c2:
-                        with open(stream_path, "rb") as file_data:
+                        st.write(f"Stream: {human_size(f['size'])}")
+
+                    # Download
+                    with c3:
+                        try:
+                            with open(stream_path, "rb") as file_data:
+                                file_bytes = file_data.read()
                             st.download_button(
-                                "📥", 
-                                file=file_data, 
-                                file_name=name, 
+                                label="📥",
+                                data=file_bytes,
+                                file_name=name,
                                 key=f"download_{test}_{name}"
                             )
+                        except Exception as e:
+                            st.error(f"Failed to prepare download: {e}")
 
-                    # Copy to Local
-                    with c3:
-                        if missing_local and st.button("⬇️", key=f"copy_{test}_{name}"):
-                            try:
-                                shutil.copy2(stream_path, local_path)
-                                st.success(f"Copied to local: {local_path}")
-                            except Exception as e:
-                                st.error(f"Failed: {e}")
-                        elif not missing_local:
-                            st.write("Local OK")
-
-                    # Archive button
+                    # Archive
                     with c4:
-                        if st.button("📦", key=f"archive_{test}_{name}"):
+                        if st.button("📂 Archive", key=f"archive_{test}_{name}"):
                             try:
                                 shutil.move(stream_path, os.path.join(archive_folder, name))
                                 st.success(f"Archived: {name}")
+                                st.experimental_rerun()
                             except Exception as e:
                                 st.error(f"Failed to archive: {e}")
 
-                    # Delete button
+                    # Delete
                     with c5:
-                        if st.button("❌", key=f"delete_{test}_{name}"):
+                        if st.button("🗑️ Delete", key=f"delete_{test}_{name}"):
                             try:
                                 os.remove(stream_path)
                                 st.success(f"Deleted: {name}")
+                                st.experimental_rerun()
                             except Exception as e:
                                 st.error(f"Failed to delete: {e}")
 
