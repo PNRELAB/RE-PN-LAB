@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 import platform
+import streamlit.components.v1 as components
 
 # === Auto-start file server ===
 def start_file_server():
@@ -27,13 +28,11 @@ def get_base64(image_path):
 
 logo_path = "WD logo.png"
 background_path = "Slide1.PNG"
-
 logo_base64 = get_base64(logo_path)
 bg_base64 = get_base64(background_path)
 
 # === Streamlit config and styles ===
 st.set_page_config("RE PN LAB Dashboard", layout="wide")
-
 st.markdown(f"""
 <style>
 html, body, .stApp {{
@@ -98,7 +97,6 @@ st.markdown(
 def check_password():
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
-
     if not st.session_state["authenticated"]:
         with st.form("login_form", clear_on_submit=False):
             password = st.text_input("🔐 Enter Password", type="password", key="password_input")
@@ -139,21 +137,21 @@ SPOTFIRE_CHEMLAB_URLS = {
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
 cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 
-# === Tabs ===
-tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📋 Uploaded Log"]
-selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
+# === Helper to open local folder (optional) ===
+def open_local_folder(path):
+    try:
+        if platform.system() == "Windows":
+            subprocess.Popen(f'explorer "{path}"')
+        elif platform.system() == "Darwin":  # macOS
+            subprocess.Popen(["open", path])
+        else:  # Linux
+            subprocess.Popen(["xdg-open", path])
+    except Exception as e:
+        st.warning(f"⚠️ Cannot open local folder: {e}")
 
-# === Helper to open file in Spotfire Analyst (Windows only) ===
-def open_in_spotfire(file_path):
-    if platform.system() == "Windows":
-        try:
-            # Update path to your Spotfire Analyst executable
-            spotfire_exe = r"C:\Program Files\TIBCO\Spotfire Analyst\Spotfire.Dxp.exe"
-            subprocess.Popen([spotfire_exe, file_path])
-        except Exception as e:
-            st.error(f"⚠️ Failed to open Spotfire Analyst: {e}")
-    else:
-        st.warning("⚠️ Opening in Spotfire Analyst is only supported on Windows.")
+# === Tabs ===
+tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
+selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
 
 # === Upload MI ===
 if selected_tab == "📁 MI Upload":
@@ -168,6 +166,8 @@ if selected_tab == "📁 MI Upload":
             f.write(file.read())
         st.success(f"✅ File saved to `{path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
+        if st.button(f"📂 Open Local Folder for {selected_test}"):
+            open_local_folder(folder)
 
 # === Upload Chemlab ===
 elif selected_tab == "📁 Chemlab Upload":
@@ -182,11 +182,22 @@ elif selected_tab == "📁 Chemlab Upload":
             f.write(file.read())
         st.success(f"✅ File saved to `{path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
+        if st.button(f"📂 Open Local Folder for {selected_test}"):
+            open_local_folder(folder)
+
+# === View Spotfire Dashboard (embedded) ===
+elif selected_tab == "📈 View Spotfire Dashboard":
+    st.subheader("📈 Embedded Spotfire Dashboards")
+    category = st.radio("Choose Category", ["MI", "Chemlab"], horizontal=True)
+    tests = mi_tests if category == "MI" else cl_tests
+    urls = SPOTFIRE_MI_URLS if category == "MI" else SPOTFIRE_CHEMLAB_URLS
+    selected_dashboard = st.selectbox("Select Dashboard", tests)
+    url = urls[selected_dashboard]
+    components.iframe(url, width=1200, height=800, scrolling=True)
 
 # === Uploaded Log ===
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
-
     def show_uploaded_files(test_list, title):
         st.markdown(f"### {title}")
         for test in test_list:
@@ -210,9 +221,6 @@ elif selected_tab == "📋 Uploaded Log":
                         with col3:
                             with open(file_path, "rb") as f:
                                 st.download_button("📥 Download", f.read(), file_name=file, key=f"dl_{test}_{file}")
-                            if platform.system() == "Windows":
-                                if st.button(f"📤 Open in Spotfire Analyst", key=f"spotfire_{test}_{file}"):
-                                    open_in_spotfire(file_path)
                     colA, colB = st.columns(2)
                     with colA:
                         if st.button(f"🗑 Delete Selected in {test}", key=f"del_{test}"):
