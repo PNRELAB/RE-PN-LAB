@@ -5,6 +5,7 @@ import base64
 import subprocess
 import sys
 import time
+import platform
 
 # === Auto-start file server ===
 def start_file_server():
@@ -138,6 +139,12 @@ SPOTFIRE_CHEMLAB_URLS = {
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
 cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 
+# === Helper: Spotfire-ready file link ===
+def generate_spotfire_file_link(file_path):
+    if os.path.exists(file_path):
+        return f"file:///{file_path.replace(os.sep, '/')}"
+    return None
+
 # === Tabs ===
 tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📈 View Spotfire Dashboard", "📋 Uploaded Log"]
 selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
@@ -156,12 +163,10 @@ if selected_tab == "📁 MI Upload":
         st.success(f"✅ File saved to `{path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
 
-        # Show all files in folder as download buttons
-        st.markdown(f"📂 Files in `{selected_test}` folder:")
-        for f_name in os.listdir(folder):
-            file_path = os.path.join(folder, f_name)
-            with open(file_path, "rb") as f_data:
-                st.download_button(f"Download {f_name}", f_data, file_name=f_name)
+        # Spotfire Analyst link
+        sf_link = generate_spotfire_file_link(path)
+        if sf_link:
+            st.markdown(f"📤 [Open `{file.name}` in Spotfire Analyst]({sf_link})", unsafe_allow_html=True)
 
 # === Upload Chemlab ===
 elif selected_tab == "📁 Chemlab Upload":
@@ -177,12 +182,10 @@ elif selected_tab == "📁 Chemlab Upload":
         st.success(f"✅ File saved to `{path}`")
         st.download_button("📥 Download This File", data=open(path, "rb").read(), file_name=file.name)
 
-        # Show all files in folder as download buttons
-        st.markdown(f"📂 Files in `{selected_test}` folder:")
-        for f_name in os.listdir(folder):
-            file_path = os.path.join(folder, f_name)
-            with open(file_path, "rb") as f_data:
-                st.download_button(f"Download {f_name}", f_data, file_name=f_name)
+        # Spotfire Analyst link
+        sf_link = generate_spotfire_file_link(path)
+        if sf_link:
+            st.markdown(f"📤 [Open `{file.name}` in Spotfire Analyst]({sf_link})", unsafe_allow_html=True)
 
 # === View Spotfire Dashboard ===
 elif selected_tab == "📈 View Spotfire Dashboard":
