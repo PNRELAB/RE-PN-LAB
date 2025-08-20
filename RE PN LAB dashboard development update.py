@@ -204,7 +204,11 @@ def upload_to_spotfire(file_path, test_type):
         st.info("📤 Executing: " + " ".join(command))
         subprocess.Popen(command)
         st.success(f"✅ Attempted upload/open in Spotfire folder: {library_path}")
-If it doesn't save automatically, use File → Save As → Spotfire Library and choose this folder.")
+st.info(
+    """✅ Attempted upload/open in Spotfire folder.
+If it doesn't save automatically, use File → Save As → Spotfire Library and choose this folder."""
+)
+
     except Exception as e:
         st.error(f"⚠️ Failed to launch Spotfire: {e}")
 
@@ -330,5 +334,6 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
 
 
