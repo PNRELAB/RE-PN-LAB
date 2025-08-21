@@ -7,6 +7,8 @@ import sys
 import time
 import csv
 from datetime import datetime
+import pandas as pd
+
 
 # === Auto-start file server ===
 def start_file_server():
@@ -187,3 +189,4 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
