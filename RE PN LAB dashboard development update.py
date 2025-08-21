@@ -219,84 +219,6 @@ def handle_upload(test_type, tests_list):
 
         st.download_button("📥 Download This File", data=open(stream_path, "rb").read(), file_name=file.name)
 
-# === Uploaded Log with per-file notes ===
-def render_uploaded_log(test_list, title):
-    st.markdown(f"### {title}")
-    container = st.container()
-    for test in test_list:
-        stream_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
-        spot_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
-        archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
-        local_folder = os.path.join(LOCAL_SAVE_FOLDER, test)
-        os.makedirs(stream_folder, exist_ok=True)
-        os.makedirs(spot_folder, exist_ok=True)
-        os.makedirs(archive_folder, exist_ok=True)
-        os.makedirs(local_folder, exist_ok=True)
-
-        # Load saved notes
-        test_notes = load_notes(stream_folder)
-
-        files = list_files_fast(stream_folder)
-        total = len(files)
-        with container.expander(f"📁 {test} — {total} file(s)", expanded=False):
-            if total == 0:
-                st.info("No files in this test yet.")
-                continue
-
-            for f in files[:20]:
-                name = f["name"]
-                stream_path = f["path"]
-
-                c1, c2, c3, c4, c5, c6 = st.columns([0.3, 0.15, 0.15, 0.15, 0.15, 0.6])
-                with c1: st.write(name)
-                with c2: st.write(f"Size: {human_size(f['size'])}")
-
-                # Download
-                with c3:
-                    try:
-                        with open(stream_path, "rb") as file_data:
-                            st.download_button(
-                                label="📥",
-                                data=file_data.read(),
-                                file_name=name,
-                                key=f"download_{test}_{name}"
-                            )
-                    except Exception as e:
-                        st.error(f"Failed to prepare download: {e}")
-
-                # Archive
-                with c4:
-                    if st.button("📂 Archive", key=f"archive_{test}_{name}"):
-                        shutil.move(stream_path, os.path.join(archive_folder, name))
-                        if name in test_notes:
-                            test_notes.pop(name)
-                            save_notes(stream_folder, test_notes)
-                        st.success(f"Archived: {name}")
-                        st.experimental_rerun()
-
-                # Delete
-                with c5:
-                    if st.button("🗑️ Delete", key=f"delete_{test}_{name}"):
-                        os.remove(stream_path)
-                        if name in test_notes:
-                            test_notes.pop(name)
-                            save_notes(stream_folder, test_notes)
-                        st.success(f"Deleted: {name}")
-                        st.experimental_rerun()
-
-                # Note input
-                key_note = f"note_{test}_{name}"
-                if key_note not in st.session_state:
-                    st.session_state[key_note] = test_notes.get(name, "")
-                with c6:
-                    new_note = st.text_input("Add detail", value=st.session_state[key_note], key=key_note)
-                    st.session_state[key_note] = new_note
-                    test_notes[name] = new_note
-
-        # Save notes
-        save_notes(stream_folder, test_notes)
-
-# === Tabs Handling ===
 if selected_tab == "📁 MI Upload":
     handle_upload("MI", mi_tests)
 elif selected_tab == "📁 Chemlab Upload":
@@ -309,9 +231,97 @@ elif selected_tab == "📈 View Spotfire Dashboard":
     selected = st.selectbox("Select Dashboard", tests)
     st.markdown(f"🔗 [Open {selected} Dashboard in Spotfire]({urls[selected]})", unsafe_allow_html=True)
 elif selected_tab == "📋 Uploaded Log":
+    st.subheader("📋 Uploaded Log")
+    page_size = st.slider("Rows per page", 5, 100, 20, 5)
+    if "refresh_log" not in st.session_state:
+        st.session_state["refresh_log"] = False
+
+    def render_uploaded_log(test_list, title):
+        st.markdown(f"### {title}")
+        container = st.container()
+
+        for test in test_list:
+            stream_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
+            spot_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
+            archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, "archive", test)
+            local_folder = os.path.join(LOCAL_SAVE_FOLDER, test)
+            os.makedirs(stream_folder, exist_ok=True)
+            os.makedirs(spot_folder, exist_ok=True)
+            os.makedirs(archive_folder, exist_ok=True)
+            os.makedirs(local_folder, exist_ok=True)
+
+            files = list_files_fast(stream_folder)
+            total = len(files)
+            test_notes = load_notes(stream_folder)
+
+            with container.expander(f"📁 {test} — {total} file(s)", expanded=False):
+                if total == 0:
+                    st.info("No files in this test yet.")
+                    continue
+
+                page_files = files[:page_size]
+
+                for f in page_files:
+                    name = f["name"]
+                    stream_path = f["path"]
+                    local_path = os.path.join(local_folder, name)
+
+                    c1, c2, c3, c4, c5, c6 = st.columns([0.25,0.15,0.15,0.15,0.15,0.15])
+                    with c1: st.write(name)
+                    with c2: st.write(f"Stream: {human_size(f['size'])}")
+
+                    # Download button
+                    with c3:
+                        try:
+                            with open(stream_path, "rb") as file_data:
+                                st.download_button(
+                                    label="📥",
+                                    data=file_data.read(),
+                                    file_name=name,
+                                    key=f"download_{test}_{name}"
+                                )
+                        except Exception as e:
+                            st.error(f"Failed to prepare download: {e}")
+
+                    # Archive
+                    with c4:
+                        if st.button("📂 Archive", key=f"archive_{test}_{name}"):
+                            try:
+                                shutil.move(stream_path, os.path.join(archive_folder, name))
+                                st.success(f"Archived: {name}")
+                                st.session_state["refresh_log"] = True
+                            except Exception as e:
+                                st.error(f"Failed to archive: {e}")
+
+                    # Delete
+                    with c5:
+                        if st.button("🗑️ Delete", key=f"delete_{test}_{name}"):
+                            try:
+                                os.remove(stream_path)
+                                st.success(f"Deleted: {name}")
+                                st.session_state["refresh_log"] = True
+                            except Exception as e:
+                                st.error(f"Failed to delete: {e}")
+
+                    # Note input
+                    safe_name = name.replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
+                    key_note = f"note_{test}_{safe_name}"
+                    if key_note not in st.session_state:
+                        st.session_state[key_note] = test_notes.get(name, "")
+                    with c6:
+                        new_note = st.text_input("Add detail", value=st.session_state[key_note], key=key_note)
+                        st.session_state[key_note] = new_note
+                        test_notes[name] = new_note
+
+            save_notes(stream_folder, test_notes)
+
     render_uploaded_log(mi_tests, "🛠 MI Tests")
     st.markdown("---")
     render_uploaded_log(cl_tests, "🧪 Chemlab Tests")
+
+    if st.session_state.get("refresh_log", False):
+        st.session_state["refresh_log"] = False
+        st.experimental_rerun()
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
