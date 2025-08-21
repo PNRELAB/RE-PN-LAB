@@ -303,7 +303,8 @@ elif selected_tab == "📋 Uploaded Log":
 
     if st.session_state.get("refresh_log", False):
         st.session_state["refresh_log"] = False
-        st.experimental_rerun()
+        st.rerun()
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
