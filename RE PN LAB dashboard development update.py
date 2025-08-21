@@ -5,9 +5,7 @@ import base64
 import subprocess
 import sys
 import time
-import json
 from datetime import datetime
-import hashlib
 
 # === Auto-start file server ===
 def start_file_server():
@@ -54,22 +52,6 @@ def list_files_fast(folder: str):
             return files
     except FileNotFoundError:
         return []
-
-# === Notes persistence ===
-def load_notes(folder):
-    notes_file = os.path.join(folder, "file_notes.json")
-    if os.path.exists(notes_file):
-        try:
-            with open(notes_file, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except:
-            return {}
-    return {}
-
-def save_notes(folder, notes_dict):
-    notes_file = os.path.join(folder, "file_notes.json")
-    with open(notes_file, "w", encoding="utf-8") as f:
-        json.dump(notes_dict, f, ensure_ascii=False, indent=2)
 
 # === Branding assets ===
 logo_path = "WD logo.png"
@@ -155,11 +137,21 @@ LOCAL_SAVE_FOLDER   = os.path.join(SHARED_UPLOAD_FOLDER, "DOWNLOADS")
 os.makedirs(LOCAL_SAVE_FOLDER, exist_ok=True)
 
 SPOTFIRE_MI_URLS = {
-    "TRH": "...", "HACT": "...", "HEAD WEAR": "...", "FLYABILITY": "...", "HBOT": "...", "SBT": "...", "ADT": "..."
+    "TRH": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/TRH",
+    "HACT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/HACT",
+    "HEAD WEAR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/HeadWear",
+    "FLYABILITY": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/flyability",
+    "HBOT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/hbot",
+    "SBT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/sbt",
+    "ADT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/adt"
 }
 
 SPOTFIRE_CHEMLAB_URLS = {
-    "AD COBALT": "...", "ICA": "...", "GCMS": "...", "LCQTOF": "...", "FTIR": "..."
+    "AD COBALT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/ADCobalt",
+    "ICA": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/ICA",
+    "GCMS": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/gcms",
+    "LCQTOF": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/lcqtof",
+    "FTIR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/ftir"
 }
 
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
@@ -216,7 +208,6 @@ def handle_upload(test_type, tests_list):
 
         st.download_button("📥 Download This File", data=open(stream_path, "rb").read(), file_name=file.name)
 
-# === Main Tabs Logic ===
 if selected_tab == "📁 MI Upload":
     handle_upload("MI", mi_tests)
 elif selected_tab == "📁 Chemlab Upload":
@@ -233,11 +224,12 @@ elif selected_tab == "📋 Uploaded Log":
     page_size = st.slider("Rows per page", 5, 100, 20, 5)
     if "refresh_log" not in st.session_state:
         st.session_state["refresh_log"] = False
+    if "file_notes_state" not in st.session_state:
+        st.session_state["file_notes_state"] = {}
 
     def render_uploaded_log(test_list, title):
         st.markdown(f"### {title}")
         container = st.container()
-
         for test in test_list:
             stream_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
             spot_folder = os.path.join(SHARED_UPLOAD_FOLDER, "Spotfire", test)
@@ -250,8 +242,6 @@ elif selected_tab == "📋 Uploaded Log":
 
             files = list_files_fast(stream_folder)
             total = len(files)
-            test_notes = load_notes(stream_folder)
-
             with container.expander(f"📁 {test} — {total} file(s)", expanded=False):
                 if total == 0:
                     st.info("No files in this test yet.")
@@ -262,14 +252,20 @@ elif selected_tab == "📋 Uploaded Log":
                 for f in page_files:
                     name = f["name"]
                     stream_path = f["path"]
-                    local_path = os.path.join(local_folder, name)
 
-                    c1, c2, c3, c4, c5, c6 = st.columns([0.25,0.15,0.15,0.15,0.15,0.15])
+                    c1, c2, c3, c4, c5, c6 = st.columns([0.25, 0.15, 0.15, 0.15, 0.15, 0.15])
                     with c1: st.write(name)
                     with c2: st.write(f"Stream: {human_size(f['size'])}")
 
+                    # Textbox for notes
+                    widget_key = f"{test}_{name}_note"
+                    if name not in st.session_state["file_notes_state"]:
+                        st.session_state["file_notes_state"][name] = ""
+                    new_note = c3.text_input("Add detail", value=st.session_state["file_notes_state"][name], key=widget_key)
+                    st.session_state["file_notes_state"][name] = new_note
+
                     # Download button
-                    with c3:
+                    with c4:
                         try:
                             with open(stream_path, "rb") as file_data:
                                 st.download_button(
@@ -282,7 +278,7 @@ elif selected_tab == "📋 Uploaded Log":
                             st.error(f"Failed to prepare download: {e}")
 
                     # Archive
-                    with c4:
+                    with c5:
                         if st.button("📂 Archive", key=f"archive_{test}_{name}"):
                             try:
                                 shutil.move(stream_path, os.path.join(archive_folder, name))
@@ -292,7 +288,7 @@ elif selected_tab == "📋 Uploaded Log":
                                 st.error(f"Failed to archive: {e}")
 
                     # Delete
-                    with c5:
+                    with c6:
                         if st.button("🗑️ Delete", key=f"delete_{test}_{name}"):
                             try:
                                 os.remove(stream_path)
@@ -300,18 +296,6 @@ elif selected_tab == "📋 Uploaded Log":
                                 st.session_state["refresh_log"] = True
                             except Exception as e:
                                 st.error(f"Failed to delete: {e}")
-
-                    # Note input (hashed key for safety)
-                    safe_key = hashlib.md5(f"{test}_{name}".encode()).hexdigest()
-                    key_note = f"note_{safe_key}"
-                    if key_note not in st.session_state:
-                        st.session_state[key_note] = test_notes.get(name, "")
-                    with c6:
-                        new_note = st.text_input("Add detail", value=st.session_state[key_note], key=key_note)
-                        st.session_state[key_note] = new_note
-                        test_notes[name] = new_note
-
-            save_notes(stream_folder, test_notes)
 
     render_uploaded_log(mi_tests, "🛠 MI Tests")
     st.markdown("---")
