@@ -101,7 +101,7 @@ st.markdown(
 )
 
 # === Config Constants ===
-SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
+SHARED_UPLOAD_FOLDER = r"W:\PN\Department\Quality\Reliability & AS Lab\AS Lab\Automation for RE"
 LOCAL_SAVE_FOLDER   = os.path.join(SHARED_UPLOAD_FOLDER, "DOWNLOADS")
 LOG_CSV = os.path.join(SHARED_UPLOAD_FOLDER, "upload_log.csv")
 os.makedirs(LOCAL_SAVE_FOLDER, exist_ok=True)
@@ -189,4 +189,5 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
 
