@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 
 # === Permanent storage folder ===
-UPLOAD_FOLDER = r"C:\PN-RE-LAB\"
+UPLOAD_FOLDER = r"C:\PN-RE-LAB"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # === Auto-start file server ===
@@ -211,4 +211,5 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
 
