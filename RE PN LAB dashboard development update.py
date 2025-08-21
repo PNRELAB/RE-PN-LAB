@@ -5,8 +5,9 @@ import base64
 import subprocess
 import sys
 import time
-from datetime import datetime
 import json
+from datetime import datetime
+import hashlib
 
 # === Auto-start file server ===
 def start_file_server():
@@ -54,18 +55,21 @@ def list_files_fast(folder: str):
     except FileNotFoundError:
         return []
 
-# === File notes helpers ===
+# === Notes persistence ===
 def load_notes(folder):
-    notes_path = os.path.join(folder, "file_notes.json")
-    if os.path.exists(notes_path):
-        with open(notes_path, "r") as f:
-            return json.load(f)
+    notes_file = os.path.join(folder, "file_notes.json")
+    if os.path.exists(notes_file):
+        try:
+            with open(notes_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            return {}
     return {}
 
 def save_notes(folder, notes_dict):
-    notes_path = os.path.join(folder, "file_notes.json")
-    with open(notes_path, "w") as f:
-        json.dump(notes_dict, f, indent=2)
+    notes_file = os.path.join(folder, "file_notes.json")
+    with open(notes_file, "w", encoding="utf-8") as f:
+        json.dump(notes_dict, f, ensure_ascii=False, indent=2)
 
 # === Branding assets ===
 logo_path = "WD logo.png"
@@ -151,21 +155,11 @@ LOCAL_SAVE_FOLDER   = os.path.join(SHARED_UPLOAD_FOLDER, "DOWNLOADS")
 os.makedirs(LOCAL_SAVE_FOLDER, exist_ok=True)
 
 SPOTFIRE_MI_URLS = {
-    "TRH": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/TRH",
-    "HACT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/HACT",
-    "HEAD WEAR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/HeadWear",
-    "FLYABILITY": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/flyability",
-    "HBOT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/hbot",
-    "SBT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/sbt",
-    "ADT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/adt"
+    "TRH": "...", "HACT": "...", "HEAD WEAR": "...", "FLYABILITY": "...", "HBOT": "...", "SBT": "...", "ADT": "..."
 }
 
 SPOTFIRE_CHEMLAB_URLS = {
-    "AD COBALT": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/ADCobalt",
-    "ICA": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/ICA",
-    "GCMS": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/gcms",
-    "LCQTOF": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/lcqtof",
-    "FTIR": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/ADHOC/RELIABILITY/ftir"
+    "AD COBALT": "...", "ICA": "...", "GCMS": "...", "LCQTOF": "...", "FTIR": "..."
 }
 
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
@@ -205,7 +199,10 @@ def handle_upload(test_type, tests_list):
         with open(stream_path, "wb") as f:
             f.write(file.read())
 
+        # Copy to Spotfire
         shutil.copy2(stream_path, os.path.join(spotfire_folder, file.name))
+
+        # Copy to local DOWNLOADS folder
         local_path, saved = save_to_local(stream_path, local_folder)
 
         st.success(f"💾 File saved in Streamlit folder: `{stream_path}`")
@@ -219,6 +216,7 @@ def handle_upload(test_type, tests_list):
 
         st.download_button("📥 Download This File", data=open(stream_path, "rb").read(), file_name=file.name)
 
+# === Main Tabs Logic ===
 if selected_tab == "📁 MI Upload":
     handle_upload("MI", mi_tests)
 elif selected_tab == "📁 Chemlab Upload":
@@ -303,9 +301,9 @@ elif selected_tab == "📋 Uploaded Log":
                             except Exception as e:
                                 st.error(f"Failed to delete: {e}")
 
-                    # Note input
-                    safe_name = name.replace(" ", "_").replace("-", "_").replace("(", "").replace(")", "")
-                    key_note = f"note_{test}_{safe_name}"
+                    # Note input (hashed key for safety)
+                    safe_key = hashlib.md5(f"{test}_{name}".encode()).hexdigest()
+                    key_note = f"note_{safe_key}"
                     if key_note not in st.session_state:
                         st.session_state[key_note] = test_notes.get(name, "")
                     with c6:
