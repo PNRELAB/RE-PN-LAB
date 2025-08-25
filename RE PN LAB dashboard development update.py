@@ -62,10 +62,16 @@ html, body, .stApp {{
     font-size: 20px !important;
 }}
 .stButton>button, .stDownloadButton>button {{
-    background-color: #00ffe1;
-    color: #000000;
+    background-color: #00ffe1 !important;
+    color: #000000 !important;
     font-weight: bold;
     border-radius: 10px;
+}}
+.stCheckbox>div label, .stSelectbox>div div, .stTextInput>div input {{
+    color: #ffffff !important;
+}}
+.stDataFrame table td, .stDataFrame table th {{
+    color: #ffffff !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -78,7 +84,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# === PASSWORD-ONLY LOGIN (streamlit-cloud safe) ===
+# === PASSWORD-ONLY LOGIN ===
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
@@ -89,11 +95,10 @@ if not st.session_state["authenticated"]:
     if login_click and password_input == "PNRELAB":
         st.session_state["authenticated"] = True
         st.success("✅ Login successful!")
-
-    if not st.session_state["authenticated"]:
+    else:
         st.stop()  # blocks the app until authenticated
 
-# === Config Constants ===
+# === CONFIGURATION ===
 SHARED_UPLOAD_FOLDER = r"W:\PN\Department\Quality\Reliability & AS Lab\AS Lab\Automation for RE"
 LOCAL_SAVE_FOLDER   = os.path.join(SHARED_UPLOAD_FOLDER, "DOWNLOADS")
 LOG_CSV = os.path.join(SHARED_UPLOAD_FOLDER, "upload_log.csv")
@@ -128,12 +133,10 @@ def handle_upload(test_type, tests_list):
         file_path = os.path.join(target_folder, uploaded_file.name)
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
-        # Log upload
         log_upload(uploaded_file.name, "PNRELAB_USER", selected_test, note)
         st.success(f"💾 File saved to: `{file_path}`")
         if note:
             st.info(f"📝 Note: {note}")
-        # Download button
         st.download_button("📥 Download This File", data=open(file_path, "rb").read(), file_name=uploaded_file.name)
 
 # === Uploaded Log Tab with Multi-Select & Select All ===
@@ -143,11 +146,7 @@ def render_uploaded_log():
         st.info("No uploads yet.")
         return
 
-    # Load log CSV
-    df = pd.read_csv(LOG_CSV)
-    df = df.sort_values("timestamp", ascending=False)
-
-    # Select test to filter
+    df = pd.read_csv(LOG_CSV).sort_values("timestamp", ascending=False)
     test_types = df["test_type"].unique()
     selected_test = st.selectbox("Select Test to view files", test_types)
     filtered_df = df[df["test_type"] == selected_test]
@@ -155,7 +154,6 @@ def render_uploaded_log():
     archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test, "archive")
     os.makedirs(archive_folder, exist_ok=True)
 
-    # Multi-select setup
     st.markdown("### Select files to manage:")
     file_checkboxes = {}
     for idx, row in filtered_df.iterrows():
@@ -198,16 +196,17 @@ def render_uploaded_log():
             st.write(f"{row['file_name']} — uploaded by {row['user']} at {row['timestamp']}")
             st.download_button("📥 Download", data=open(file_path, "rb").read(), file_name=row["file_name"])
 
-# === Tabs ===
-tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📋 Uploaded Log"]
-selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
+# === MAIN APP UI (only after login) ===
+if st.session_state["authenticated"]:
+    tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📋 Uploaded Log"]
+    selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
 
-if selected_tab == "📁 MI Upload":
-    handle_upload("MI", mi_tests)
-elif selected_tab == "📁 Chemlab Upload":
-    handle_upload("Chemlab", cl_tests)
-elif selected_tab == "📋 Uploaded Log":
-    render_uploaded_log()
+    if selected_tab == "📁 MI Upload":
+        handle_upload("MI", mi_tests)
+    elif selected_tab == "📁 Chemlab Upload":
+        handle_upload("Chemlab", cl_tests)
+    elif selected_tab == "📋 Uploaded Log":
+        render_uploaded_log()
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
