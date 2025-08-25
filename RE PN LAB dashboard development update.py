@@ -103,17 +103,16 @@ st.markdown(
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
-# Block app until correct password
 if not st.session_state["authenticated"]:
     password_input = st.text_input("Enter Dashboard Password:", type="password")
-    if st.button("Login"):
-        if password_input == "PNRELAB":
-            st.session_state["authenticated"] = True
-            st.success("✅ Login successful!")
-            st.experimental_rerun()  # safe here
-        else:
-            st.error("❌ Incorrect password")
-    st.stop()  # blocks app until password is correct
+    login_click = st.button("Login")
+
+    if login_click and password_input == "PNRELAB":
+        st.session_state["authenticated"] = True
+        st.success("✅ Login successful!")
+
+    if not st.session_state["authenticated"]:
+        st.stop()  # blocks the app until authenticated
 
 # === Config Constants ===
 SHARED_UPLOAD_FOLDER = r"W:\PN\Department\Quality\Reliability & AS Lab\AS Lab\Automation for RE"
