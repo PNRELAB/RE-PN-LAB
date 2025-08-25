@@ -67,11 +67,26 @@ html, body, .stApp {{
     font-weight: bold;
     border-radius: 10px;
 }}
-.stCheckbox>div label, .stSelectbox>div div, .stTextInput>div input {{
+.stCheckbox>div label, .stSelectbox>div div, .stTextInput>div input, .stTextInput>div label {{
     color: #ffffff !important;
 }}
 .stDataFrame table td, .stDataFrame table th {{
     color: #ffffff !important;
+}}
+input[type="text"], input[type="password"] {{
+    color: #ffffff !important;
+    background-color: rgba(0,0,0,0.5) !important;
+    border: 1px solid #00ffe1 !important;
+}}
+input::placeholder {{
+    color: #ffffff !important;
+    opacity: 1 !important;
+}}
+button[kind="primary"] {{
+    color: #000000 !important;
+    background-color: #00ffe1 !important;
+    font-weight: bold !important;
+    border-radius: 10px !important;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -89,9 +104,8 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    password_input = st.text_input("Enter Dashboard Password:", type="password")
+    password_input = st.text_input("Enter Dashboard Password:", type="password", placeholder="Enter Password")
     login_click = st.button("Login")
-
     if login_click and password_input == "PNRELAB":
         st.session_state["authenticated"] = True
         st.success("✅ Login successful!")
