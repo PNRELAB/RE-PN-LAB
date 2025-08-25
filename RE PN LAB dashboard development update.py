@@ -114,12 +114,12 @@ cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 # === Password Authentication (simplified) ===
 def password_login():
     # --- Password Authentication (fixed) ---
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
+    if "authenticated" not in st.session_state:
+        st.session_state["authenticated"] = False
 
-if not st.session_state["authenticated"]:
-    password = st.text_input("Enter Dashboard Password:", type="password")
-    login_btn = st.button("Login")
+    if not st.session_state["authenticated"]:
+        password = st.text_input("Enter Dashboard Password:", type="password")
+        login_btn = st.button("Login")
 
     if login_btn:
         if password == "PNRELAB":
@@ -187,4 +187,5 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
 
