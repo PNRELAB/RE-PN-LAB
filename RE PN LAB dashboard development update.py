@@ -9,7 +9,6 @@ import csv
 from datetime import datetime
 import pandas as pd
 
-
 # === Auto-start file server ===
 def start_file_server():
     try:
@@ -112,28 +111,23 @@ SPOTFIRE_CHEMLAB_URLS = {"AD COBALT":"...","ICA":"...","GCMS":"...","LCQTOF":"..
 mi_tests = list(SPOTFIRE_MI_URLS.keys())
 cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 
-# === Password Authentication ===
-def check_password():
+# === Password Authentication (simplified) ===
+def password_login():
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
-        st.session_state["user_name"] = None
-    if not st.session_state["authenticated"]:
-        with st.form("login_form"):
-            user_name = st.text_input("Enter Username")
-            password = st.text_input("Enter Password", type="password")
-            submitted = st.form_submit_button("Login")
-            if submitted:
-                if password == "PNRELAB":
-                    st.session_state["authenticated"] = True
-                    st.session_state["user_name"] = user_name or "UnknownUser"
-                    st.rerun()
-                else:
-                    st.error("❌ Incorrect password")
-        return False
-    return True
 
-if not check_password():
-    st.stop()
+    if not st.session_state["authenticated"]:
+        password = st.text_input("Enter Dashboard Password:", type="password")
+        if st.button("Login"):
+            if password == "PNRELAB":
+                st.session_state["authenticated"] = True
+                st.success("✅ Login successful!")
+                st.experimental_rerun()
+            else:
+                st.error("❌ Incorrect password")
+        st.stop()
+
+password_login()  # stops the app if not logged in
 
 # === Helper: Log uploads ===
 def log_upload(file_name, user_name, test_type, note=""):
@@ -159,7 +153,7 @@ def handle_upload(test_type, tests_list):
         with open(file_path, "wb") as f:
             f.write(uploaded_file.getbuffer())
         # Log upload
-        log_upload(uploaded_file.name, st.session_state["user_name"], selected_test, note)
+        log_upload(uploaded_file.name, "PNRELAB_USER", selected_test, note)
         st.success(f"💾 File saved to: `{file_path}`")
         if note:
             st.info(f"📝 Note: {note}")
@@ -189,5 +183,3 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
-
-
