@@ -120,13 +120,14 @@ def password_login():
     # Show login if not authenticated
     if not st.session_state["authenticated"]:
         password_input = st.text_input("Enter Dashboard Password:", type="password")
-    if st.button("Login"):
-        if password_input == "PNRELAB":
-            st.session_state["authenticated"] = True
-            st.success("✅ Login successful!")
-            st.experimental_rerun()  # safe, now in main scope
-        else:
-            st.error("❌ Incorrect password")
+        login_click = st.button("Login")
+        if login_click:
+            if password_input == "PNRELAB":
+                st.session_state["authenticated"] = True
+                st.success("✅ Login successful!")
+                st.experimental_rerun()  # safe, now in main scope
+            else:
+                st.error("❌ Incorrect password")
     st.stop()  # prevents access to rest of the app until correct password
 
 
@@ -187,6 +188,7 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
 
 
 
