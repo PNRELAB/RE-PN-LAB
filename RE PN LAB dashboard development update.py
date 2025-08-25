@@ -115,8 +115,7 @@ if not st.session_state["authenticated"]:
     if login_click:
         if password_input == "PNRELAB":
             st.session_state["authenticated"] = True
-            st.success("✅ Login successful!")
-            st.experimental_rerun()
+            st.success("✅ Login successful! Please continue below.")
         else:
             st.error("❌ Wrong password. Try again.")
     st.stop()  # blocks the app until authenticated
@@ -186,12 +185,14 @@ def render_uploaded_log():
             file_checkboxes[idx] = st.checkbox(label, key=f"cb_{idx}")
 
     # Select All button
-    if st.button("Select All"):
+    select_all = st.button("Select All")
+    if select_all:
         for idx in file_checkboxes:
             st.session_state[f"cb_{idx}"] = True
 
     # Archive selected
-    if st.button("📦 Archive Selected"):
+    archive_clicked = st.button("📦 Archive Selected")
+    if archive_clicked:
         for idx, checked in file_checkboxes.items():
             if checked:
                 file_path = os.path.join(SHARED_UPLOAD_FOLDER, filtered_df.loc[idx, "test_type"],
@@ -199,10 +200,10 @@ def render_uploaded_log():
                 if os.path.exists(file_path):
                     shutil.move(file_path, os.path.join(archive_folder, os.path.basename(file_path)))
         st.success("📦 Selected files archived successfully!")
-        st.experimental_rerun()
 
     # Delete selected
-    if st.button("🗑️ Delete Selected"):
+    delete_clicked = st.button("🗑️ Delete Selected")
+    if delete_clicked:
         for idx, checked in file_checkboxes.items():
             if checked:
                 file_path = os.path.join(SHARED_UPLOAD_FOLDER, filtered_df.loc[idx, "test_type"],
@@ -210,7 +211,6 @@ def render_uploaded_log():
                 if os.path.exists(file_path):
                     os.remove(file_path)
         st.success("🗑️ Selected files deleted successfully!")
-        st.experimental_rerun()
 
     # Remaining files
     st.write("---")
