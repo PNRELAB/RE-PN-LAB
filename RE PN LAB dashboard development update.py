@@ -113,22 +113,22 @@ cl_tests = list(SPOTFIRE_CHEMLAB_URLS.keys())
 
 # === Password Authentication (simplified) ===
 def password_login():
-    # --- Password Authentication (fixed) ---
+    # --- Password-only login (stable version) ---
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
 
+    # Show login if not authenticated
     if not st.session_state["authenticated"]:
-        password = st.text_input("Enter Dashboard Password:", type="password")
-        login_btn = st.button("Login")
-
-    if login_btn:
-        if password == "PNRELAB":
+        password_input = st.text_input("Enter Dashboard Password:", type="password")
+    if st.button("Login"):
+        if password_input == "PNRELAB":
             st.session_state["authenticated"] = True
             st.success("✅ Login successful!")
-            st.experimental_rerun()  # safe here
+            st.experimental_rerun()  # safe, now in main scope
         else:
             st.error("❌ Incorrect password")
-    st.stop()  # stops the app until correct password
+    st.stop()  # prevents access to rest of the app until correct password
+
 
 
 password_login()  # stops the app if not logged in
@@ -187,5 +187,6 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
 
 
