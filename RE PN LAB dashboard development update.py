@@ -34,27 +34,6 @@ def human_size(num_bytes: int) -> str:
         num_bytes /= 1024.0
     return f"{num_bytes:.1f} PB"
 
-def list_files_fast(folder: str):
-    try:
-        with os.scandir(folder) as it:
-            files = []
-            for entry in it:
-                if entry.is_file():
-                    try:
-                        stat = entry.stat()
-                        files.append({
-                            "name": entry.name,
-                            "path": entry.path,
-                            "size": stat.st_size,
-                            "mtime": stat.st_mtime,
-                        })
-                    except FileNotFoundError:
-                        continue
-            files.sort(key=lambda x: x["mtime"], reverse=True)
-            return files
-    except FileNotFoundError:
-        return []
-
 # === Branding assets ===
 logo_base64 = get_base64("WD logo.png")
 bg_base64 = get_base64("Slide1.PNG")
@@ -157,15 +136,67 @@ def handle_upload(test_type, tests_list):
         # Download button
         st.download_button("📥 Download This File", data=open(file_path, "rb").read(), file_name=uploaded_file.name)
 
-# === Uploaded Log Tab ===
+# === Uploaded Log Tab with Multi-Select & Select All ===
 def render_uploaded_log():
     st.subheader("📋 Uploaded Log")
-    if os.path.exists(LOG_CSV):
-        df = pd.read_csv(LOG_CSV)
-        df = df.sort_values("timestamp", ascending=False)
-        st.dataframe(df)
-    else:
+    if not os.path.exists(LOG_CSV):
         st.info("No uploads yet.")
+        return
+
+    # Load log CSV
+    df = pd.read_csv(LOG_CSV)
+    df = df.sort_values("timestamp", ascending=False)
+
+    # Select test to filter
+    test_types = df["test_type"].unique()
+    selected_test = st.selectbox("Select Test to view files", test_types)
+    filtered_df = df[df["test_type"] == selected_test]
+
+    archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test, "archive")
+    os.makedirs(archive_folder, exist_ok=True)
+
+    # Multi-select setup
+    st.markdown("### Select files to manage:")
+    file_checkboxes = {}
+    for idx, row in filtered_df.iterrows():
+        file_path = os.path.join(SHARED_UPLOAD_FOLDER, row["test_type"], row["file_name"])
+        if os.path.exists(file_path):
+            label = f"{row['file_name']} — uploaded by {row['user']} at {row['timestamp']}"
+            file_checkboxes[idx] = st.checkbox(label, key=f"cb_{idx}")
+
+    # Select All button
+    if st.button("Select All"):
+        for idx in file_checkboxes:
+            st.session_state[f"cb_{idx}"] = True
+
+    # Archive selected
+    if st.button("📦 Archive Selected"):
+        for idx, checked in file_checkboxes.items():
+            if checked:
+                file_path = os.path.join(SHARED_UPLOAD_FOLDER, filtered_df.loc[idx, "test_type"],
+                                         filtered_df.loc[idx, "file_name"])
+                if os.path.exists(file_path):
+                    shutil.move(file_path, os.path.join(archive_folder, os.path.basename(file_path)))
+        st.success("📦 Selected files archived successfully!")
+
+    # Delete selected
+    if st.button("🗑️ Delete Selected"):
+        for idx, checked in file_checkboxes.items():
+            if checked:
+                file_path = os.path.join(SHARED_UPLOAD_FOLDER, filtered_df.loc[idx, "test_type"],
+                                         filtered_df.loc[idx, "file_name"])
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+        st.success("🗑️ Selected files deleted successfully!")
+
+    # Remaining files
+    st.write("---")
+    st.markdown("### Remaining files:")
+    for idx, row in filtered_df.iterrows():
+        file_path = os.path.join(SHARED_UPLOAD_FOLDER, row["test_type"], row["file_name"])
+        if os.path.exists(file_path):
+            st.write(f"{row['file_name']} — uploaded by {row['user']} at {row['timestamp']}")
+            st.download_button("📥 Download", data=open(file_path, "rb").read(), file_name=row["file_name"])
 
 # === Tabs ===
 tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📋 Uploaded Log"]
