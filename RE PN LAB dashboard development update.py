@@ -143,12 +143,12 @@ def log_upload(file_name, user_name, test_type, note=""):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         writer.writerow([timestamp, user_name, test_type, file_name, note])
 
-# === Upload Section ===
-def handle_upload(test_type, tests_list):
+# === Upload Section with unique keys ===
+def handle_upload(test_type, tests_list, key_prefix):
     st.subheader(f"🛠️ Upload {test_type} Test File")
-    selected_test = st.selectbox(f"Select {test_type} Test", tests_list)
-    uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"])
-    note = st.text_input("Optional note for this file")
+    selected_test = st.selectbox(f"Select {test_type} Test", tests_list, key=f"{key_prefix}_selectbox")
+    uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx"], key=f"{key_prefix}_uploader")
+    note = st.text_input("Optional note for this file", key=f"{key_prefix}_note")
     if uploaded_file:
         target_folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test)
         os.makedirs(target_folder, exist_ok=True)
@@ -159,7 +159,8 @@ def handle_upload(test_type, tests_list):
         st.success(f"💾 File saved to: `{file_path}`")
         if note:
             st.info(f"📝 Note: {note}")
-        st.download_button("📥 Download This File", data=open(file_path, "rb").read(), file_name=uploaded_file.name)
+        st.download_button("📥 Download This File", data=open(file_path, "rb").read(),
+                           file_name=uploaded_file.name, key=f"{key_prefix}_download")
 
 # === Uploaded Log Tab with Multi-Select & Select All ===
 def render_uploaded_log():
@@ -170,7 +171,7 @@ def render_uploaded_log():
 
     df = pd.read_csv(LOG_CSV).sort_values("timestamp", ascending=False)
     test_types = df["test_type"].unique()
-    selected_test = st.selectbox("Select Test to view files", test_types)
+    selected_test = st.selectbox("Select Test to view files", test_types, key="log_test_select")
     filtered_df = df[df["test_type"] == selected_test]
 
     archive_folder = os.path.join(SHARED_UPLOAD_FOLDER, selected_test, "archive")
@@ -182,16 +183,16 @@ def render_uploaded_log():
         file_path = os.path.join(SHARED_UPLOAD_FOLDER, row["test_type"], row["file_name"])
         if os.path.exists(file_path):
             label = f"{row['file_name']} — {row['user']} — {row['timestamp']} — {human_size(os.path.getsize(file_path))}"
-            file_checkboxes[idx] = st.checkbox(label, key=f"cb_{idx}")
+            file_checkboxes[idx] = st.checkbox(label, key=f"log_cb_{idx}")
 
     # Select All button
-    select_all = st.button("Select All")
+    select_all = st.button("Select All", key="log_select_all")
     if select_all:
         for idx in file_checkboxes:
-            st.session_state[f"cb_{idx}"] = True
+            st.session_state[f"log_cb_{idx}"] = True
 
     # Archive selected
-    archive_clicked = st.button("📦 Archive Selected")
+    archive_clicked = st.button("📦 Archive Selected", key="log_archive_btn")
     if archive_clicked:
         for idx, checked in file_checkboxes.items():
             if checked:
@@ -202,7 +203,7 @@ def render_uploaded_log():
         st.success("📦 Selected files archived successfully!")
 
     # Delete selected
-    delete_clicked = st.button("🗑️ Delete Selected")
+    delete_clicked = st.button("🗑️ Delete Selected", key="log_delete_btn")
     if delete_clicked:
         for idx, checked in file_checkboxes.items():
             if checked:
@@ -219,15 +220,16 @@ def render_uploaded_log():
         file_path = os.path.join(SHARED_UPLOAD_FOLDER, row["test_type"], row["file_name"])
         if os.path.exists(file_path):
             st.write(f"{row['file_name']} — {row['user']} — {row['timestamp']} — {human_size(os.path.getsize(file_path))}")
-            st.download_button("📥 Download", data=open(file_path, "rb").read(), file_name=row["file_name"])
+            st.download_button("📥 Download", data=open(file_path, "rb").read(),
+                               file_name=row["file_name"], key=f"log_download_{idx}")
 
 # === MAIN APP UI (only after login) ===
 if st.session_state["authenticated"]:
     tabs = st.tabs(["📁 MI Upload", "📁 Chemlab Upload", "📋 Uploaded Log"])
     with tabs[0]:
-        handle_upload("MI", mi_tests)
+        handle_upload("MI", mi_tests, key_prefix="mi")
     with tabs[1]:
-        handle_upload("Chemlab", cl_tests)
+        handle_upload("Chemlab", cl_tests, key_prefix="cl")
     with tabs[2]:
         render_uploaded_log()
 
