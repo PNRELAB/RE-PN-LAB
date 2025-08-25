@@ -67,13 +67,13 @@ html, body, .stApp {{
     font-weight: bold;
     border-radius: 10px;
 }}
-.stCheckbox>div label, .stSelectbox>div div, .stTextInput>div input, .stTextInput>div label {{
-    color: #ffffff !important;
+.stCheckbox>div label, .stSelectbox>div div {{
+    color: #00ffe1 !important;
 }}
-.stDataFrame table td, .stDataFrame table th {{
-    color: #ffffff !important;
+.stSelectbox>div div[data-baseweb="option"]:hover {{
+    background-color: #444444 !important;
 }}
-input[type="text"], input[type="password"] {{
+.stTextInput>div input, .stTextInput>div label, input[type="text"], input[type="password"] {{
     color: #ffffff !important;
     background-color: rgba(0,0,0,0.5) !important;
     border: 1px solid #00ffe1 !important;
@@ -82,16 +82,24 @@ input::placeholder {{
     color: #ffffff !important;
     opacity: 1 !important;
 }}
-button[kind="primary"] {{
-    color: #000000 !important;
-    background-color: #00ffe1 !important;
-    font-weight: bold !important;
-    border-radius: 10px !important;
+.stDataFrame table th {{
+    color: #ffffff !important;
+    background-color: #333333 !important;
+}}
+.stDataFrame table td {{
+    color: #ffffff !important;
+    background-color: #222222 !important;
+}}
+.css-1l02zno, .css-1kqjv2k {{
+    color: #00ffe1 !important;
 }}
 .footer {{
     text-align: center;
     padding: 10px;
     color: #00ffe1;
+}}
+body {{
+    background-color: #111111 !important;
 }}
 </style>
 """, unsafe_allow_html=True)
