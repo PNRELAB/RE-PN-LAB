@@ -88,6 +88,11 @@ button[kind="primary"] {{
     font-weight: bold !important;
     border-radius: 10px !important;
 }}
+.footer {{
+    text-align: center;
+    padding: 10px;
+    color: #00ffe1;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -104,13 +109,17 @@ if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    password_input = st.text_input("Enter Dashboard Password:", type="password", placeholder="Enter Password")
-    login_click = st.button("Login")
-    if login_click and password_input == "PNRELAB":
-        st.session_state["authenticated"] = True
-        st.success("✅ Login successful!")
-    else:
-        st.stop()  # blocks the app until authenticated
+    st.markdown("<h3 style='text-align:center;'>Enter Dashboard Password:</h3>", unsafe_allow_html=True)
+    password_input = st.text_input("", type="password", placeholder="Enter Password", key="pw_input", help="Password is case-sensitive")
+    login_click = st.button("Login", key="login_btn")
+    if login_click:
+        if password_input == "PNRELAB":
+            st.session_state["authenticated"] = True
+            st.success("✅ Login successful!")
+            st.experimental_rerun()
+        else:
+            st.error("❌ Wrong password. Try again.")
+    st.stop()  # blocks the app until authenticated
 
 # === CONFIGURATION ===
 SHARED_UPLOAD_FOLDER = r"W:\PN\Department\Quality\Reliability & AS Lab\AS Lab\Automation for RE"
@@ -173,7 +182,7 @@ def render_uploaded_log():
     for idx, row in filtered_df.iterrows():
         file_path = os.path.join(SHARED_UPLOAD_FOLDER, row["test_type"], row["file_name"])
         if os.path.exists(file_path):
-            label = f"{row['file_name']} — uploaded by {row['user']} at {row['timestamp']}"
+            label = f"{row['file_name']} — {row['user']} — {row['timestamp']} — {human_size(os.path.getsize(file_path))}"
             file_checkboxes[idx] = st.checkbox(label, key=f"cb_{idx}")
 
     # Select All button
@@ -190,6 +199,7 @@ def render_uploaded_log():
                 if os.path.exists(file_path):
                     shutil.move(file_path, os.path.join(archive_folder, os.path.basename(file_path)))
         st.success("📦 Selected files archived successfully!")
+        st.experimental_rerun()
 
     # Delete selected
     if st.button("🗑️ Delete Selected"):
@@ -200,6 +210,7 @@ def render_uploaded_log():
                 if os.path.exists(file_path):
                     os.remove(file_path)
         st.success("🗑️ Selected files deleted successfully!")
+        st.experimental_rerun()
 
     # Remaining files
     st.write("---")
@@ -207,19 +218,17 @@ def render_uploaded_log():
     for idx, row in filtered_df.iterrows():
         file_path = os.path.join(SHARED_UPLOAD_FOLDER, row["test_type"], row["file_name"])
         if os.path.exists(file_path):
-            st.write(f"{row['file_name']} — uploaded by {row['user']} at {row['timestamp']}")
+            st.write(f"{row['file_name']} — {row['user']} — {row['timestamp']} — {human_size(os.path.getsize(file_path))}")
             st.download_button("📥 Download", data=open(file_path, "rb").read(), file_name=row["file_name"])
 
 # === MAIN APP UI (only after login) ===
 if st.session_state["authenticated"]:
-    tabs = ["📁 MI Upload", "📁 Chemlab Upload", "📋 Uploaded Log"]
-    selected_tab = st.selectbox("🗭 Navigate", tabs, label_visibility="collapsed")
-
-    if selected_tab == "📁 MI Upload":
+    tabs = st.tabs(["📁 MI Upload", "📁 Chemlab Upload", "📋 Uploaded Log"])
+    with tabs[0]:
         handle_upload("MI", mi_tests)
-    elif selected_tab == "📁 Chemlab Upload":
+    with tabs[1]:
         handle_upload("Chemlab", cl_tests)
-    elif selected_tab == "📋 Uploaded Log":
+    with tabs[2]:
         render_uploaded_log()
 
 # === Footer ===
