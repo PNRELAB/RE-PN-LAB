@@ -11,7 +11,7 @@ def start_file_server():
         folder_to_serve = r"C:\PN-RE-LAB"
         port = 8502
         command = [sys.executable, "-m", "http.server", str(port), "--directory", folder_to_serve]
-        subprocess.Popen(command)  # Remove stdout/stderr suppression for debugging
+        subprocess.Popen(command)  # remove stdout/stderr suppression for debugging
         time.sleep(1)
     except Exception as e:
         st.warning(f"⚠️ Failed to start file server: {e}")
@@ -26,7 +26,7 @@ def get_base64_from_url(url):
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-# Raw GitHub URLs
+# === Load images from GitHub raw URLs ===
 logo_base64 = get_base64_from_url("https://github.com/PNRELAB/RE-PN-LAB/raw/main/WD%20logo.png")
 bg_base64   = get_base64_from_url("https://github.com/PNRELAB/RE-PN-LAB/raw/main/Slide1.PNG")
 
@@ -173,7 +173,6 @@ elif selected_tab == "📋 Uploaded Log":
                 if files:
                     st.markdown(f"#### 📁 {test}")
 
-                    # Session state for select_all
                     if f"select_all_{test}" not in st.session_state:
                         st.session_state[f"select_all_{test}"] = False
 
