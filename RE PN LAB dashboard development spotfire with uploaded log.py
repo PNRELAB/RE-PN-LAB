@@ -1,29 +1,34 @@
 import streamlit as st
-import os, shutil, base64, subprocess, sys, time
+import os, shutil, subprocess, sys, time
+import requests
+from io import BytesIO
+from PIL import Image
+import base64
 
-# === Auto-start file server ===
+# === Auto-start local file server ===
 def start_file_server():
     try:
-        folder_to_serve = r"C:\\PN-RE-LAB"
+        folder_to_serve = r"C:\PN-RE-LAB"
         port = 8502
         command = [sys.executable, "-m", "http.server", str(port), "--directory", folder_to_serve]
-        subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(command)  # stdout/stderr hidden for debugging; remove DEVNULL
         time.sleep(1)
     except Exception as e:
         st.warning(f"⚠️ Failed to start file server: {e}")
 
 start_file_server()
 
-# === Image to base64 ===
-def get_base64(image_path):
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
+# === Get base64 from URL ===
+def get_base64_from_url(url):
+    response = requests.get(url)
+    img = Image.open(BytesIO(response.content))
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode()
 
-logo_path = r"https://github.com/PNRELAB/RE-PN-LAB/blob/main/WD%20logo.png"
-background_path = r"https://github.com/PNRELAB/RE-PN-LAB/blob/main/Slide1.PNG"
-
-logo_base64 = get_base64(logo_path)
-bg_base64 = get_base64(background_path)
+# Use raw URLs for GitHub images
+logo_base64 = get_base64_from_url("https://github.com/PNRELAB/RE-PN-LAB/raw/main/WD%20logo.png")
+bg_base64 = get_base64_from_url("https://github.com/PNRELAB/RE-PN-LAB/raw/main/Slide1.PNG")
 
 # === Streamlit config and styles ===
 st.set_page_config("RE PN LAB Dashboard", layout="wide")
@@ -87,7 +92,7 @@ if not check_password():
     st.stop()
 
 # === Config Constants ===
-SHARED_UPLOAD_FOLDER = r"C:\\PN-RE-LAB"
+SHARED_UPLOAD_FOLDER = r"C:\PN-RE-LAB"
 
 SPOTFIRE_MI_URLS = {
     "TRH": "https://spotfiremypn.wdc.com/spotfire/wp/analysis?file=/TRH/Overview",
@@ -167,35 +172,31 @@ elif selected_tab == "📋 Uploaded Log":
                 files = os.listdir(folder)
                 if files:
                     st.markdown(f"#### 📁 {test}")
+
+                    # Initialize session state for checkboxes
+                    if f"select_all_{test}" not in st.session_state:
+                        st.session_state[f"select_all_{test}"] = False
+
+                    select_all = st.checkbox(f"Select All ({test})", key=f"select_all_{test}")
                     selected = []
-                    select_all = st.checkbox(f"Select All ({test})", key=f"all_{test}")
                     for file in files:
-                        file_path = os.path.join(folder, file)
-                        col1, col2, col3 = st.columns([0.05, 0.5, 0.45])
-                        with col1:
-                            if st.checkbox("", key=f"{test}_{file}", value=select_all):
-                                selected.append(file)
-                        with col2:
-                            st.markdown(f"**{file}** ({os.path.getsize(file_path) // 1024} KB)")
-                        with col3:
-                            with open(file_path, "rb") as f:
-                                st.download_button("📥 Download", f.read(), file_name=file, key=f"dl_{test}_{file}")
-                            link = spotfire_dict.get(test)
-                            if link:
-                                st.markdown(f"[🔗 Open in Spotfire]({link})", unsafe_allow_html=True)
+                        checked = st.checkbox(f"{file} ({os.path.getsize(os.path.join(folder,file))//1024} KB)", value=select_all, key=f"{test}_{file}")
+                        if checked:
+                            selected.append(file)
+
                     colA, colB = st.columns(2)
                     with colA:
                         if st.button(f"🗑 Delete Selected in {test}", key=f"del_{test}"):
                             for file in selected:
                                 os.remove(os.path.join(folder, file))
                             st.success("✅ Files deleted")
-                            st.rerun()
+                            st.experimental_rerun()
                     with colB:
                         if st.button(f"📦 Archive Selected in {test}", key=f"arc_{test}"):
                             for file in selected:
                                 shutil.move(os.path.join(folder, file), os.path.join(archive_folder, file))
                             st.success("📦 Files archived")
-                            st.rerun()
+                            st.experimental_rerun()
 
     show_uploaded_files(mi_tests, SPOTFIRE_MI_URLS, "🛠 MI Tests")
     st.markdown("---")
@@ -203,5 +204,3 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
-
-
