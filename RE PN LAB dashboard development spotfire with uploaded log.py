@@ -11,14 +11,14 @@ def start_file_server():
         folder_to_serve = r"C:\PN-RE-LAB"
         port = 8502
         command = [sys.executable, "-m", "http.server", str(port), "--directory", folder_to_serve]
-        subprocess.Popen(command)  # stdout/stderr hidden for debugging; remove DEVNULL
+        subprocess.Popen(command)  # Remove stdout/stderr suppression for debugging
         time.sleep(1)
     except Exception as e:
         st.warning(f"⚠️ Failed to start file server: {e}")
 
 start_file_server()
 
-# === Get base64 from URL ===
+# === Convert image from URL to base64 ===
 def get_base64_from_url(url):
     response = requests.get(url)
     img = Image.open(BytesIO(response.content))
@@ -26,9 +26,9 @@ def get_base64_from_url(url):
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-# Use raw URLs for GitHub images
+# Raw GitHub URLs
 logo_base64 = get_base64_from_url("https://github.com/PNRELAB/RE-PN-LAB/raw/main/WD%20logo.png")
-bg_base64 = get_base64_from_url("https://github.com/PNRELAB/RE-PN-LAB/raw/main/Slide1.PNG")
+bg_base64   = get_base64_from_url("https://github.com/PNRELAB/RE-PN-LAB/raw/main/Slide1.PNG")
 
 # === Streamlit config and styles ===
 st.set_page_config("RE PN LAB Dashboard", layout="wide")
@@ -82,7 +82,7 @@ def check_password():
         password = st.text_input("🔐 Enter Password", type="password")
         if password == "PNRELAB":
             st.session_state["authenticated"] = True
-            st.rerun()
+            st.experimental_rerun()
         elif password != "":
             st.error("❌ Incorrect password")
         return False
@@ -173,14 +173,15 @@ elif selected_tab == "📋 Uploaded Log":
                 if files:
                     st.markdown(f"#### 📁 {test}")
 
-                    # Initialize session state for checkboxes
+                    # Session state for select_all
                     if f"select_all_{test}" not in st.session_state:
                         st.session_state[f"select_all_{test}"] = False
 
                     select_all = st.checkbox(f"Select All ({test})", key=f"select_all_{test}")
                     selected = []
                     for file in files:
-                        checked = st.checkbox(f"{file} ({os.path.getsize(os.path.join(folder,file))//1024} KB)", value=select_all, key=f"{test}_{file}")
+                        file_path = os.path.join(folder, file)
+                        checked = st.checkbox(f"{file} ({os.path.getsize(file_path)//1024} KB)", value=select_all, key=f"{test}_{file}")
                         if checked:
                             selected.append(file)
 
