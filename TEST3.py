@@ -168,7 +168,8 @@ def handle_upload(test_type, tests_list):
 def render_uploaded_log(test_list, title):
     st.markdown(f"### {title}")
     container = st.container()
-    page_size = st.slider("Rows per page", 5, 50, 20, 5)
+    # Add a unique key to the slider to avoid duplicate ID errors
+    page_size = st.slider("Rows per page", 5, 50, 20, 5, key=f"{title}_slider")  
 
     for test in test_list:
         test_folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
