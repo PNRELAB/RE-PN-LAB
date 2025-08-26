@@ -19,7 +19,7 @@ def get_base64(image_path):
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
-logo_path = r"C:\\Users\\1000329829\\OneDrive - Western Digital\\WEB BASED WITH PYTHON\\WD logo.png"
+logo_path = r"https://github.com/PNRELAB/RE-PN-LAB/blob/main/WD%20logo.png"
 background_path = r"C:\Users\1000329829\OneDrive - Western Digital\UI DASHBOARD\14 july 25\Slide1.PNG"
 
 logo_base64 = get_base64(logo_path)
@@ -203,3 +203,4 @@ elif selected_tab == "📋 Uploaded Log":
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
+
