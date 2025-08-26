@@ -1,7 +1,5 @@
 import streamlit as st
 import os, shutil, subprocess, sys, time
-import requests
-from io import BytesIO
 from PIL import Image
 import base64
 
@@ -11,24 +9,22 @@ def start_file_server():
         folder_to_serve = r"C:\PN-RE-LAB"
         port = 8502
         command = [sys.executable, "-m", "http.server", str(port), "--directory", folder_to_serve]
-        subprocess.Popen(command)  # remove stdout/stderr suppression for debugging
+        subprocess.Popen(command)
         time.sleep(1)
     except Exception as e:
         st.warning(f"⚠️ Failed to start file server: {e}")
 
 start_file_server()
 
-# === Convert image from URL to base64 ===
-def get_base64_from_url(url):
-    response = requests.get(url)
-    img = Image.open(BytesIO(response.content))
-    buffered = BytesIO()
-    img.save(buffered, format="PNG")
-    return base64.b64encode(buffered.getvalue()).decode()
+# === Convert local image to base64 ===
+def get_base64(image_path):
+    with open(image_path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
-# === Load images from GitHub raw URLs ===
-logo_base64 = get_base64_from_url("https://github.com/PNRELAB/RE-PN-LAB/raw/main/WD%20logo.png")
-bg_base64   = get_base64_from_url("https://github.com/PNRELAB/RE-PN-LAB/raw/main/Slide1.PNG")
+# === Load images locally ===
+IMAGE_FOLDER = r"C:\PN-RE-LAB\images"
+logo_base64 = get_base64(os.path.join(IMAGE_FOLDER, "WD_logo.png"))
+bg_base64   = get_base64(os.path.join(IMAGE_FOLDER, "Slide1.PNG"))
 
 # === Streamlit config and styles ===
 st.set_page_config("RE PN LAB Dashboard", layout="wide")
@@ -162,7 +158,7 @@ elif selected_tab == "📈 View Spotfire Dashboard":
 elif selected_tab == "📋 Uploaded Log":
     st.subheader("📋 Uploaded Log")
 
-    def show_uploaded_files(test_list, spotfire_dict, title):
+    def show_uploaded_files(test_list, title):
         st.markdown(f"### {title}")
         for test in test_list:
             folder = os.path.join(SHARED_UPLOAD_FOLDER, test)
@@ -198,9 +194,9 @@ elif selected_tab == "📋 Uploaded Log":
                             st.success("📦 Files archived")
                             st.experimental_rerun()
 
-    show_uploaded_files(mi_tests, SPOTFIRE_MI_URLS, "🛠 MI Tests")
+    show_uploaded_files(mi_tests, "🛠 MI Tests")
     st.markdown("---")
-    show_uploaded_files(cl_tests, SPOTFIRE_CHEMLAB_URLS, "🧪 Chemlab Tests")
+    show_uploaded_files(cl_tests, "🧪 Chemlab Tests")
 
 # === Footer ===
 st.markdown("<hr><div class='footer'>📘 Made with passion by RE PN LAB 2025</div>", unsafe_allow_html=True)
