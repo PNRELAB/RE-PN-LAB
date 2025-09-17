@@ -60,23 +60,25 @@ def save_to_local(src_path, dst_folder):
     except Exception as e:
         return dst_path, str(e)
 
-# === Upload Employee Excel (required for login) ===
-st.subheader("🔑 Upload Employee List (Excel)")
+# === Load Employee List from Shared File (auto-reload) ===
+EMPLOYEE_LIST_PATH = r"C:\PN-RE-LAB\EMPLOYEE_LIST.xlsx"
 
-employee_file_upload = st.file_uploader("Upload Employee List Excel", type=["xlsx"])
-if employee_file_upload:
+@st.cache_data(ttl=60)  # refresh cache every 60 seconds
+def load_employee_list():
     try:
-        employee_df = pd.read_excel(employee_file_upload, dtype=str)
-        if 'Employee #' not in employee_df.columns or 'Name' not in employee_df.columns:
-            st.error("❌ Excel must have columns: 'Employee #' and 'Name'")
-            st.stop()
-        employee_ids = employee_df['Employee #'].tolist()
-    except Exception as e:
-        st.error(f"Failed to read employee list: {e}")
+        df = pd.read_excel(EMPLOYEE_LIST_PATH, dtype=str)
+        if 'Employee #' not in df.columns or 'Name' not in df.columns:
+            raise ValueError("Excel must have columns: 'Employee #' and 'Name'")
+        return df
+    except FileNotFoundError:
+        st.error(f"❌ Employee list file not found at {EMPLOYEE_LIST_PATH}")
         st.stop()
-else:
-    st.info("Please upload the employee list Excel to continue.")
-    st.stop()
+    except Exception as e:
+        st.error(f"❌ Failed to read employee list: {e}")
+        st.stop()
+
+employee_df = load_employee_list()
+employee_ids = employee_df['Employee #'].tolist()
 
 # === Employee Login ===
 if "authenticated" not in st.session_state:
@@ -168,7 +170,6 @@ def handle_upload(test_type, tests_list):
 def render_uploaded_log(test_list, title):
     st.markdown(f"### {title}")
     container = st.container()
-    # Add a unique key to the slider to avoid duplicate ID errors
     page_size = st.slider("Rows per page", 5, 50, 20, 5, key=f"{title}_slider")  
 
     for test in test_list:
