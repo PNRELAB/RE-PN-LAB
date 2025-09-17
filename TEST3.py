@@ -60,19 +60,19 @@ def save_to_local(src_path, dst_folder):
     except Exception as e:
         return dst_path, str(e)
 
-# === Load Employee List from Shared File (auto-reload) ===
+# === Load Employee List from Shared File (built-in) ===
 EMPLOYEE_LIST_PATH = r"C:\PN-RE-LAB\EMPLOYEE_LIST.xlsx"
 
-@st.cache_data(ttl=60)  # refresh cache every 60 seconds
 def load_employee_list():
     try:
+        if not os.path.exists(EMPLOYEE_LIST_PATH):
+            st.error(f"❌ Employee list file not found at {EMPLOYEE_LIST_PATH}")
+            st.stop()
         df = pd.read_excel(EMPLOYEE_LIST_PATH, dtype=str)
         if 'Employee #' not in df.columns or 'Name' not in df.columns:
-            raise ValueError("Excel must have columns: 'Employee #' and 'Name'")
+            st.error("❌ Excel must have columns: 'Employee #' and 'Name'")
+            st.stop()
         return df
-    except FileNotFoundError:
-        st.error(f"❌ Employee list file not found at {EMPLOYEE_LIST_PATH}")
-        st.stop()
     except Exception as e:
         st.error(f"❌ Failed to read employee list: {e}")
         st.stop()
