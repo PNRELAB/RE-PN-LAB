@@ -215,7 +215,7 @@ def save_to_local(src_path, dst_folder):
     
     
 # === Load Employee List from Shared File (robust) ===
-EMPLOYEE_LIST_PATH = r"C:\PN-RE-LAB\EMPLOYEE_LIST.xlsx"
+EMPLOYEE_LIST_PATH = "EMPLOYEE_LIST.xlsx"
 #Hardcodes the Excel file path where the employee list is stored
 #The Excel must have at least 2 columns:
 #--> Employee #
